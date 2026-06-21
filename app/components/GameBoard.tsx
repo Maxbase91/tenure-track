@@ -7,6 +7,8 @@ import { canDo, eventPending } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
 import { cueForLog, isMuted, play, toggleMute } from "@/lib/sound";
 import styles from "./GameBoard.module.css";
+import { LabScene } from "./LabScene";
+import { ConferenceScene } from "./ConferenceScene";
 
 // The four real actions — how you spend a term. Coffee is NOT here: it's a
 // booster (rendered separately) that buys time back, not a peer of these.
@@ -115,6 +117,11 @@ export function GameBoard({
         <button className={styles.mute} onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"}>
           {muted ? "Sound off" : "Sound on"}
         </button>
+      </div>
+
+      {/* scene — shows lab or conference based on active event */}
+      <div className={styles.scene}>
+        {ev?.id === "conference" ? <ConferenceScene s={s} /> : <LabScene s={s} />}
       </div>
 
       {/* vital signs */}

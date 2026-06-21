@@ -1,291 +1,367 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { canDo } from "@/lib/game/machine";
-import type { ActionId, GameState } from "@/lib/game/types";
+// Side-view lab scene. Display-only — no callbacks, no game state mutations.
+// Reads GameState to drive all visual indicators.
 
-// The isometric "growing lab" (spec §16 M6), now interactive (Stage 2): objects
-// are tappable/focusable controls that dispatch the five actions via onAct. The
-// scene stays presentational — it only calls the callback; canDo gates each
-// hotspot. The GameBoard action dock remains as the labelled fallback.
+import { useReducedMotion } from "framer-motion";
+import type { GameState } from "@/lib/game/types";
+import { Scientist } from "./Scientist";
+import type { ScientistMood } from "./Scientist";
 
-const TW = 44; // iso tile width
-const TH = 22; // iso tile height
-
-// Same labels/hints as the action dock (duplicated to avoid a GameBoard↔Scene
-// import cycle). Shown on hover / focus; tap fires the action.
-const INFO: Record<ActionId, { label: string; hint: string }> = {
-  experiment: { label: "Experiment", hint: "−3 wk · −£4k → +6 Knowledge" },
-  paper: { label: "Write paper", hint: "−3 wk · −£3k · needs 10 Know" },
-  grant: { label: "Write grant", hint: "−5 wk · −£1k → 2d6 for £15k" },
-  mentor: { label: "Mentor", hint: "−½ day → +Know, +Morale" },
-  coffee: { label: "Coffee", hint: "+2 wk · +Workload · −Morale" },
-};
-
-function proj(col: number, row: number, ox: number, oy: number) {
-  return { x: ox + (col - row) * (TW / 2), y: oy + (col + row) * (TH / 2) };
+function deriveMood(s: GameState): ScientistMood {
+  if (s.phase === "gameover" && s.outcome === "loss") return "exhausted";
+  if (s.phase === "gameover" && s.outcome === "win") return "celebrating";
+  if (s.meters.morale >= 65) return "focused";
+  if (s.meters.morale < 30) return "stressed";
+  if (s.workload > 70) return "exhausted";
+  return "neutral";
 }
 
-function darken(hex: string, f: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  const r = Math.round(((n >> 16) & 255) * f);
-  const g = Math.round(((n >> 8) & 255) * f);
-  const b = Math.round((n & 255) * f);
-  return `rgb(${r},${g},${b})`;
+// Corkboard publication papers
+function Publications({ count }: { count: number }) {
+  return (
+    <>
+      {/* Corkboard */}
+      <rect x={140} y={12} width={180} height={75} rx={3} fill="#2a1e14" stroke="#5a3f2a" strokeWidth={1} />
+      <text
+        x={230}
+        y={10}
+        fontSize={7}
+        fill="#9a8f74"
+        fontFamily="'IBM Plex Mono', monospace"
+        textAnchor="middle"
+      >
+        PUBLICATIONS
+      </text>
+      {Array.from({ length: count }, (_, i) => {
+        const px = 150 + i * 28;
+        const pinColors = ["#d85850", "#54b089", "#f4d43c", "#9fb2b9", "#d85850", "#54b089"];
+        return (
+          <g key={i} transform={`rotate(${(i % 3 - 1) * 3} ${px + 10} ${28 + 14})`}>
+            {/* Paper */}
+            <rect x={px} y={18} width={20} height={28} fill="#f1ead9" stroke="#cdbf9f" strokeWidth={0.8} />
+            {/* Text lines */}
+            <line x1={px + 3} y1={24} x2={px + 17} y2={24} stroke="#9a8f74" strokeWidth={0.7} />
+            <line x1={px + 3} y1={28} x2={px + 17} y2={28} stroke="#9a8f74" strokeWidth={0.7} />
+            <line x1={px + 3} y1={32} x2={px + 14} y2={32} stroke="#9a8f74" strokeWidth={0.7} />
+            {/* Pushpin */}
+            <circle cx={px + 10} cy={18} r={2.5} fill={pinColors[i % pinColors.length]} />
+          </g>
+        );
+      })}
+    </>
+  );
 }
 
-function IsoBox({ cx, cy, size, h, base }: { cx: number; cy: number; size: number; h: number; base: string }) {
-  const tw = (TW / 2) * size;
-  const th = (TH / 2) * size;
-  const T = `${cx},${cy - th}`, R = `${cx + tw},${cy}`, B = `${cx},${cy + th}`, L = `${cx - tw},${cy}`;
-  const T2 = `${cx},${cy - th - h}`, R2 = `${cx + tw},${cy - h}`, B2 = `${cx},${cy + th - h}`, L2 = `${cx - tw},${cy - h}`;
+// Morale-driven desk plant
+function Plant({ morale }: { morale: number }) {
+  const leafColor =
+    morale >= 60 ? "#4caf50" : morale >= 30 ? "#9e9d24" : "#6d4c41";
+  const drooping = morale < 30;
+  const wrapper = drooping ? `rotate(15 390 128)` : undefined;
+
   return (
     <g>
-      <polygon points={`${L} ${B} ${B2} ${L2}`} fill={darken(base, 0.78)} />
-      <polygon points={`${B} ${R} ${R2} ${B2}`} fill={darken(base, 0.6)} />
-      <polygon points={`${T2} ${R2} ${B2} ${L2}`} fill={base} />
+      {/* Pot trapezoid */}
+      <rect x={382} y={130} width={16} height={16} rx={1} fill="#8a5a32" />
+      {/* Pot rim */}
+      <ellipse cx={390} cy={130} rx={12} ry={5} fill="#7a4f2a" />
+      {/* Leaves */}
+      <g transform={wrapper}>
+        <path
+          d="M390,128 C383,118 376,115 378,122 S390,128 390,128"
+          fill={leafColor}
+          stroke="none"
+          className={morale >= 60 ? "tt-bob" : undefined}
+        />
+        <path
+          d="M390,128 C397,118 404,115 402,122 S390,128 390,128"
+          fill={leafColor}
+          stroke="none"
+          className={morale >= 60 ? "tt-bob" : undefined}
+          style={morale >= 60 ? { animationDelay: "0.3s" } : undefined}
+        />
+        <path
+          d="M390,128 C390,116 390,108 390,114 S390,128 390,128"
+          fill={leafColor}
+          stroke="none"
+          className={morale >= 60 ? "tt-bob" : undefined}
+          style={morale >= 60 ? { animationDelay: "0.6s" } : undefined}
+        />
+      </g>
     </g>
   );
 }
 
-function Tile({ cx, cy, fill }: { cx: number; cy: number; fill: string }) {
-  return <polygon points={`${cx},${cy - TH / 2} ${cx + TW / 2},${cy} ${cx},${cy + TH / 2} ${cx - TW / 2},${cy}`} fill={fill} stroke="#d8d4cc" strokeWidth={0.5} />;
-}
-
-function Student({ cx, cy, loyalty, delay }: { cx: number; cy: number; loyalty: number; delay: number }) {
-  const coat = loyalty >= 50 ? "#3f7d5a" : loyalty >= 25 ? "#7a8aa0" : "#9c6b6b";
+// Microscope on bench
+function Microscope({ morale }: { morale: number }) {
   return (
-    <g className="tt-bob" style={{ animationDelay: `${delay}s` }}>
-      <ellipse cx={cx} cy={cy + 4} rx={8} ry={3} fill="rgba(0,0,0,0.12)" />
-      <path d={`M${cx - 5},${cy} Q${cx},${cy - 14} ${cx + 5},${cy} Z`} fill={coat} />
-      <circle cx={cx} cy={cy - 14} r={4} fill="#f1c9a5" />
-      <text x={cx} y={cy - 20} textAnchor="middle" fontSize={7} fill="#c0392b">{loyalty >= 50 ? "♥" : ""}</text>
-    </g>
-  );
-}
-
-// Floating SVG label (clamped to the viewBox; flips below if it would clip top).
-function Tooltip({ cx, top, label, text }: { cx: number; top: number; label: string; text: string }) {
-  const w = 158, h = 30;
-  const x = Math.max(4, Math.min(376 - w, cx - w / 2));
-  const y = top - h - 6 < 4 ? top + 8 : top - h - 6;
-  return (
-    <g pointerEvents="none">
-      <rect x={x} y={y} width={w} height={h} rx={6} fill="rgba(27,42,50,0.95)" />
-      <text x={x + 9} y={y + 13} fontSize={10} fontWeight={700} fill="#f1ead9">{label}</text>
-      <text x={x + 9} y={y + 25} fontSize={9} fill="#9fb2b9" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{text}</text>
-    </g>
-  );
-}
-
-// A focusable, accessible interaction layer over an already-drawn object.
-function Hotspot({
-  id, label, text, enabled, x, y, w, h, active, setActive, onAct,
-}: {
-  id: ActionId; label: string; text: string; enabled: boolean;
-  x: number; y: number; w: number; h: number;
-  active: string | null; setActive: Dispatch<SetStateAction<string | null>>; onAct: (a: ActionId) => void;
-}) {
-  const key = `${id}@${x},${y}`; // unique per placement (experiment has several)
-  const isActive = active === key;
-  const reduced = useReducedMotion() ?? false;
-  const fire = () => { if (enabled) onAct(id); };
-  // Functional updates: only clear if *this* hotspot is still the active one,
-  // so moving focus/hover between hotspots can't stomp the new one to null.
-  const leave = () => setActive((a) => (a === key ? null : a));
-  return (
-    <motion.g
-      role="button"
-      tabIndex={enabled ? 0 : -1}
-      aria-label={`${label}. ${text}`}
-      aria-disabled={!enabled}
-      onClick={fire}
-      onKeyDown={(e) => { if (enabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fire(); } }}
-      onPointerEnter={() => setActive(key)}
-      onPointerLeave={leave}
-      onFocus={() => setActive(key)}
-      onBlur={leave}
-      whileTap={enabled && !reduced ? { scale: 0.92 } : undefined}
-      style={{ cursor: enabled ? "pointer" : "not-allowed", outline: "none", transformBox: "fill-box", transformOrigin: "center" }}
-    >
-      <rect x={x} y={y} width={w} height={h} fill="transparent" />
-      {!enabled && <rect x={x} y={y} width={w} height={h} rx={6} fill="rgba(236,230,216,0.5)" />}
-      {isActive && (
-        <rect x={x} y={y} width={w} height={h} rx={6}
-          fill={enabled ? "rgba(244,212,60,0.16)" : "rgba(216,88,80,0.10)"}
-          stroke={enabled ? "#f4d43c" : "#d85850"} strokeWidth={2} />
+    <g>
+      {/* Base */}
+      <ellipse cx={110} cy={118} rx={14} ry={5} fill="#2e4953" />
+      {/* Arm */}
+      <rect x={107} y={80} width={6} height={40} fill="#243a44" />
+      {/* Head — bob animation on the whole head group */}
+      <g className="tt-bob" style={{ animationDuration: "3.2s" }}>
+        <rect x={100} y={76} width={20} height={12} rx={3} fill="#2e4953" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+        {/* Eyepiece */}
+        <rect x={108} y={68} width={4} height={10} rx={2} fill="#1b2a32" />
+      </g>
+      {/* Objective lens */}
+      <circle cx={110} cy={118} r={4} fill="#1b2a32" stroke={morale > 50 ? "rgba(84,176,137,0.5)" : "rgba(84,176,137,0.2)"} strokeWidth={1} />
+      {/* Glow when morale is high */}
+      {morale > 50 && (
+        <circle cx={110} cy={118} r={7} fill="rgba(84,176,137,0.06)" />
       )}
-      {isActive && <Tooltip cx={x + w / 2} top={y} label={label} text={text} />}
-    </motion.g>
+    </g>
   );
 }
 
-export function LabScene({ s, onAct }: { s: GameState; onAct?: (a: ActionId) => void }) {
-  const [active, setActive] = useState<string | null>(null);
-
-  const rep = s.meters.reputation;
-  const level = rep >= 12 ? 3 : rep >= 8 ? 2 : rep >= 4 ? 1 : 0;
-  const n = Math.min(5, 3 + level); // floor grows with Reputation
-  const ox = 190, oy = 92;
-  const back = (c: number, r: number) => proj(c, r, ox, oy);
-
-  // Floor tiles.
-  const tiles = [];
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++) {
-      const { x, y } = proj(c, r, ox, oy);
-      tiles.push(<Tile key={`t${c}-${r}`} cx={x} cy={y} fill={(c + r) % 2 ? "#efe9dd" : "#e7e0d2"} />);
-    }
-
-  // Back-wall framed papers — one per publication (display cap 8).
-  const pubs = Math.min(s.publications, 8);
-  const papers = Array.from({ length: pubs }, (_, i) => (
-    <g key={`p${i}`}>
-      <rect x={36 + i * 36} y={14} width={26} height={20} fill="#fff" stroke="#333" strokeWidth={1.2} />
-      <line x1={40 + i * 36} y1={20} x2={58 + i * 36} y2={20} stroke="#bbb" />
-      <line x1={40 + i * 36} y1={24} x2={58 + i * 36} y2={24} stroke="#bbb" />
-      <line x1={40 + i * 36} y1={28} x2={54 + i * 36} y2={28} stroke="#bbb" />
+// Computer monitor — center of bench
+function Monitor() {
+  return (
+    <g>
+      {/* Screen glow behind bezel */}
+      <rect x={192} y={66} width={56} height={50} rx={6} fill="rgba(49,83,110,0.15)" style={{ filter: "blur(8px)" }} />
+      {/* Stand */}
+      <rect x={216} y={110} width={8} height={10} fill="#243a44" />
+      {/* Stand base */}
+      <rect x={210} y={119} width={20} height={4} rx={2} fill="#1b2a32" />
+      {/* Bezel */}
+      <rect x={196} y={70} width={48} height={42} rx={4} fill="#1b2a32" stroke="#2e4953" strokeWidth={1.5} />
+      {/* Screen surface */}
+      <rect x={200} y={74} width={40} height={34} rx={2} fill="url(#monitorGrad)" />
+      {/* Code/data lines */}
+      <line x1={204} y1={82} x2={228} y2={82} stroke="rgba(244,212,60,0.5)" strokeWidth={1} />
+      <line x1={204} y1={87} x2={220} y2={87} stroke="rgba(244,212,60,0.3)" strokeWidth={1} />
+      <line x1={204} y1={92} x2={232} y2={92} stroke="rgba(244,212,60,0.4)" strokeWidth={1} />
+      <line x1={204} y1={97} x2={215} y2={97} stroke="rgba(244,212,60,0.25)" strokeWidth={1} />
     </g>
-  ));
+  );
+}
 
-  const fr = back(n - 1, 0); // freezer (back-right)
-  const cf = back(0, 0); // centrifuge (back-left)
-  const cm = back(n - 1, n - 1); // coffee machine (front-right)
-  const pl = back(0, n - 1); // plant (front-left)
+// Coffee machine on bench
+function CoffeeMachine({ morale, coffeeCups }: { morale: number; coffeeCups: number }) {
+  const powerLight = morale < 30 ? "#d85850" : "#54b089";
+  return (
+    <g>
+      {/* Body */}
+      <rect x={316} y={86} width={28} height={34} rx={4} fill="#2a2a2a" stroke="rgba(255,255,255,0.1)" strokeWidth={1} />
+      {/* Top section */}
+      <rect x={318} y={82} width={24} height={8} rx={2} fill="#1f1f1f" />
+      {/* Water tank */}
+      <rect x={340} y={84} width={6} height={20} rx={2} fill="#1e3a44" stroke="#2e4953" strokeWidth={0.8} />
+      {/* Power light */}
+      <circle cx={321} cy={89} r={3} fill={powerLight} />
+      {/* Drip tray */}
+      <rect x={312} y={118} width={36} height={4} rx={2} fill="#1b2a32" />
+      {/* Steam */}
+      <ellipse className="tt-steam" cx={325} cy={82} rx={3} ry={5} fill="rgba(200,200,200,0.4)" style={{ animationDelay: "0s" }} />
+      <ellipse className="tt-steam" cx={330} cy={80} rx={3} ry={5} fill="rgba(200,200,200,0.4)" style={{ animationDelay: "0.7s" }} />
+      <ellipse className="tt-steam" cx={335} cy={82} rx={3} ry={5} fill="rgba(200,200,200,0.4)" style={{ animationDelay: "1.4s" }} />
+      {/* Cup */}
+      {coffeeCups > 0 && (
+        <circle cx={328} cy={117} r={5} fill="#6b3f1a" stroke="#8a5a32" strokeWidth={0.8} />
+      )}
+    </g>
+  );
+}
 
-  // New foreground furniture: a writing desk (paper) and a filing cabinet (grant).
-  const frontY = oy + (n - 1) * (TH / 2 + TH / 2); // ~ front-row centre y
-  const desk = { x: 150, y: frontY + 18 };
-  const filing = { x: 238, y: frontY + 18 };
+// Scattered papers clutter on bench (workload indicator)
+function BenchClutter({ workload }: { workload: number }) {
+  const count = Math.min(6, Math.floor(workload / 16));
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => {
+        const x = 140 + (i * 27);
+        const angle = (i * 37) % 30 - 15;
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={115}
+            width={14}
+            height={10}
+            fill="#f1ead9"
+            opacity={0.85}
+            transform={`rotate(${angle} ${x + 7} ${120})`}
+          />
+        );
+      })}
+    </>
+  );
+}
 
-  const morale = s.meters.morale;
-  const leaf = morale >= 60 ? "#4caf50" : morale >= 30 ? "#9e9d24" : "#8d6e63";
-  const droop = morale >= 60 ? 0 : morale >= 30 ? 6 : 14;
+// Workload bar strip (bottom-right)
+function WorkloadBar({ workload }: { workload: number }) {
+  const barFill =
+    workload > 70 ? "#d85850" : workload > 40 ? "#f4d43c" : "#54b089";
+  const barWidth = (workload / 100) * 60;
+  return (
+    <g>
+      <text
+        x={460}
+        y={208}
+        fontSize={6}
+        fill="rgba(159,178,185,0.6)"
+        fontFamily="'IBM Plex Mono', monospace"
+        textAnchor="end"
+      >
+        WORKLOAD
+      </text>
+      <rect x={410} y={212} width={60} height={3} rx={1.5} fill="rgba(255,255,255,0.06)" />
+      <rect x={410} y={212} width={barWidth} height={3} rx={1.5} fill={barFill} />
+    </g>
+  );
+}
 
-  const clutter = Math.min(8, Math.floor(s.workload / 12));
-  const scraps = Array.from({ length: clutter }, (_, i) => {
-    const t = back(1 + (i % Math.max(1, n - 2)), 1 + ((i * 2) % Math.max(1, n - 1)));
-    return <rect key={`s${i}`} x={t.x - 4 + (i % 3) * 3} y={t.y - 2} width={6} height={4} fill="#cfc8ba" transform={`rotate(${(i * 37) % 60 - 30} ${t.x} ${t.y})`} />;
+// Tenure clock (top-right corner)
+function TenureClock({ term, maxTerms }: { term: number; maxTerms: number }) {
+  const progress = Math.min(term, maxTerms) / maxTerms;
+  const urgent = progress > 0.8;
+  const handColor = urgent ? "#d85850" : "#f4d43c";
+  // 8 tick marks at 45° increments
+  const ticks = Array.from({ length: 8 }, (_, i) => {
+    const angle = (i * 45 * Math.PI) / 180;
+    const innerR = 14;
+    const outerR = 18;
+    const cx = 452;
+    const cy = 28;
+    return (
+      <line
+        key={i}
+        x1={cx + innerR * Math.sin(angle)}
+        y1={cy - innerR * Math.cos(angle)}
+        x2={cx + outerR * Math.sin(angle)}
+        y2={cy - outerR * Math.cos(angle)}
+        stroke="#2e4953"
+        strokeWidth={1}
+        strokeLinecap="round"
+      />
+    );
   });
 
-  // Benches.
-  const benchPos: { x: number; y: number }[] = [];
-  for (let c = 1; c < n - 1; c++) benchPos.push(back(c, 1));
-  const benches = benchPos.map((b, i) => <IsoBox key={`b${i}`} cx={b.x} cy={b.y} size={0.8} h={9} base="#c9b79a" />);
+  return (
+    <g>
+      <circle cx={452} cy={28} r={18} fill="none" stroke="#2e4953" strokeWidth={1.5} />
+      {ticks}
+      {/* Clock hand */}
+      <line
+        x1={452}
+        y1={28}
+        x2={452}
+        y2={12}
+        stroke={handColor}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        transform={`rotate(${progress * 360} 452 28)`}
+      />
+      {/* Center dot */}
+      <circle cx={452} cy={28} r={2} fill={handColor} />
+      {/* T label */}
+      <text x={452} y={31} fontSize={8} fill="#9fb2b9" textAnchor="middle">T</text>
+      {/* Term fraction */}
+      <text
+        x={452}
+        y={54}
+        fontSize={7.5}
+        fill="#9fb2b9"
+        fontFamily="'IBM Plex Mono', monospace"
+        textAnchor="middle"
+      >
+        {Math.min(term, maxTerms)}/{maxTerms}
+      </text>
+    </g>
+  );
+}
 
-  // Students.
-  const studentPos = s.students.slice(0, 4).map((_, i) => back(1 + (i % 2), 2 + (i % 2)));
-  const students = s.students.slice(0, 4).map((st, i) => (
-    <Student key={`st${i}`} cx={studentPos[i].x} cy={studentPos[i].y} loyalty={st.loyalty} delay={i * 0.4} />
-  ));
+export function LabScene({ s }: { s: GameState }) {
+  const reduced = useReducedMotion() ?? false;
+  const mood = deriveMood(s);
+  const pubCount = Math.min(s.publications, 6);
 
-  const tint = morale >= 60 ? "rgba(255,206,84,0.07)" : morale < 30 ? "rgba(70,100,200,0.12)" : "rgba(0,0,0,0)";
-
-  // --- interaction layer -----------------------------------------------------
-  const av = (id: ActionId) => canDo(s, id);
-  const hot = (id: ActionId, x: number, y: number, w: number, h: number) => {
-    const v = av(id);
-    return (
-      <Hotspot key={`h-${id}-${x}-${y}`} id={id} label={INFO[id].label}
-        text={v.ok ? INFO[id].hint : v.reason ?? ""} enabled={!!onAct && v.ok}
-        x={x} y={y} w={w} h={h} active={active} setActive={setActive} onAct={onAct ?? (() => {})} />
-    );
-  };
-  const hotspots = onAct ? [
-    ...benchPos.map((b) => hot("experiment", b.x - 18, b.y - 20, 36, 28)),
-    ...(level >= 1 ? [hot("experiment", fr.x - 16, fr.y - 44, 32, 54)] : []),
-    hot("coffee", cm.x - 13, cm.y - 26, 26, 40),
-    ...studentPos.map((t) => hot("mentor", t.x - 10, t.y - 24, 20, 30)),
-    hot("paper", desk.x - 18, desk.y - 28, 36, 36),
-    hot("grant", filing.x - 14, filing.y - 32, 28, 42),
-  ] : [];
+  // Window sky color based on time of day
+  const windowFill =
+    s.meters.time >= 8 ? "#1a3a5c" : s.meters.time >= 4 ? "#0f1e30" : "#060e18";
 
   return (
-    <svg viewBox="0 0 380 250" width="100%" style={{ display: "block", background: "linear-gradient(#f5f2ea,#ece6d8)", borderRadius: 8 }}
-      role={onAct ? "group" : "img"} aria-label={onAct ? "Your lab — tap an object to act" : "Your lab"}>
-      {/* back wall */}
-      <rect x={20} y={6} width={340} height={36} fill="#f0ece2" />
-      {papers}
+    <svg
+      viewBox="0 0 480 220"
+      width="100%"
+      role="img"
+      aria-label="Your lab"
+      style={{ display: "block", borderRadius: 16, background: "#1b2a32" }}
+    >
+      <defs>
+        <linearGradient id="monitorGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0d2233" />
+          <stop offset="100%" stopColor="#132d44" />
+        </linearGradient>
+      </defs>
 
-      {tiles}
-      {scraps}
+      {/* Layer 1 — Room structure */}
+      <rect x={0} y={0} width={480} height={165} fill="#1b2a32" />
+      <rect x={0} y={160} width={480} height={60} fill="#16222a" />
+      <line x1={0} y1={160} x2={480} y2={160} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
 
-      {/* centrifuge (haunted — always spinning) */}
-      <g>
-        <IsoBox cx={cf.x} cy={cf.y} size={0.7} h={14} base="#9aa7b3" />
-        <g className="tt-spin">
-          <ellipse cx={cf.x} cy={cf.y - 14} rx={9} ry={4.5} fill="#5b6b78" />
-          <line x1={cf.x - 8} y1={cf.y - 14} x2={cf.x + 8} y2={cf.y - 14} stroke="#cdd6df" strokeWidth={1.5} />
-        </g>
-      </g>
-
-      {/* −80 freezer */}
-      {level >= 1 && (
-        <g>
-          <IsoBox cx={fr.x} cy={fr.y} size={0.8} h={40} base="#dfe7ee" />
-          <rect x={fr.x - 8} y={fr.y - 38} width={16} height={3} fill="#aebfcb" />
-          <text x={fr.x} y={fr.y - 18} textAnchor="middle" fontSize={9} fill="#7fa6c4">❄</text>
-        </g>
+      {/* Layer 2 — Window */}
+      {/* Window glow behind frame */}
+      {s.meters.time >= 8 && (
+        <rect x={28} y={18} width={84} height={74} rx={5} fill="rgba(100,160,255,0.04)" />
       )}
+      <rect x={30} y={20} width={80} height={70} rx={4} fill={windowFill} stroke="#2e4953" strokeWidth={2} />
+      {/* Window panes — cross lines */}
+      <line x1={70} y1={20} x2={70} y2={90} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
+      <line x1={30} y1={55} x2={110} y2={55} stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
 
-      {benches}
-      {students}
+      {/* Layer 3 — Corkboard with publications */}
+      <Publications count={pubCount} />
 
-      {/* writing desk + monitor (Write paper) */}
-      <g>
-        <IsoBox cx={desk.x} cy={desk.y} size={0.7} h={7} base="#8a6f52" />
-        <IsoBox cx={desk.x} cy={desk.y - 7} size={0.34} h={12} base="#2e3b42" />
-        <rect x={desk.x - 6} y={desk.y - 19} width={12} height={8} rx={1} fill="#86b6cc" />
-        <rect x={desk.x - 7} y={desk.y - 5} width={14} height={3} rx={1} fill="#cbb79a" />
-      </g>
+      {/* Layer 4 — Morale plant */}
+      <Plant morale={s.meters.morale} />
 
-      {/* filing cabinet (Write grant) */}
-      <g>
-        <IsoBox cx={filing.x} cy={filing.y} size={0.45} h={26} base="#6b7b86" />
-        {[8, 15, 22].map((dy) => (
-          <g key={dy}>
-            <line x1={filing.x - 7} y1={filing.y - dy} x2={filing.x + 7} y2={filing.y - dy + 3.5} stroke="#46535c" strokeWidth={1} />
-            <rect x={filing.x - 2} y={filing.y - dy + 1} width={4} height={2} fill="#cdd6db" />
-          </g>
-        ))}
-      </g>
+      {/* Layer 5 — Lab bench */}
+      <rect x={60} y={118} width={350} height={14} rx={3} fill="#2a3a2e" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+      <rect x={60} y={131} width={350} height={10} fill="#1e2c22" />
+      <rect x={65} y={141} width={8} height={20} fill="#1a2a1e" />
+      <rect x={397} y={141} width={8} height={20} fill="#1a2a1e" />
 
-      {/* coffee machine + steam */}
-      <g>
-        <IsoBox cx={cm.x} cy={cm.y} size={0.6} h={18} base="#4a4a4a" />
-        <rect x={cm.x - 3} y={cm.y - 10} width={6} height={5} fill="#2b2b2b" />
-        {[0, 0.5, 1].map((d) => (
-          <ellipse key={d} className="tt-steam" style={{ animationDelay: `${d}s` }} cx={cm.x} cy={cm.y - 20} rx={3} ry={5} fill="rgba(180,180,180,0.6)" />
-        ))}
-      </g>
+      {/* Layer 6 — Equipment on bench */}
+      <Microscope morale={s.meters.morale} />
+      <Monitor />
+      <CoffeeMachine morale={s.meters.morale} coffeeCups={s.coffeeCups} />
+      {!reduced && <BenchClutter workload={s.workload} />}
 
-      {/* plant (Morale) */}
-      <g>
-        <IsoBox cx={pl.x} cy={pl.y} size={0.4} h={7} base="#b5651d" />
-        <g transform={`rotate(${droop} ${pl.x} ${pl.y - 7})`}>
-          <ellipse cx={pl.x - 4} cy={pl.y - 12} rx={5} ry={3} fill={leaf} />
-          <ellipse cx={pl.x + 4} cy={pl.y - 12} rx={5} ry={3} fill={leaf} />
-          <ellipse cx={pl.x} cy={pl.y - 16} rx={4} ry={5} fill={leaf} />
-        </g>
-      </g>
+      {/* Layer 7 — Workload bar */}
+      <WorkloadBar workload={s.workload} />
 
-      {/* tenure clock */}
-      <g>
-        <circle cx={350} cy={24} r={14} fill="#fff" stroke="#333" strokeWidth={1.5} />
-        <line x1={350} y1={24} x2={350} y2={13} stroke="#333" strokeWidth={1.5}
-          transform={`rotate(${(Math.min(s.term, s.maxTerms) / s.maxTerms) * 360} 350 24)`} />
-        <text x={350} y={46} textAnchor="middle" fontSize={8} fill="#666">{Math.min(s.term, s.maxTerms)}/{s.maxTerms}</text>
-      </g>
+      {/* Layer 8 — Scientist character embedded as <g> */}
+      {/* The Scientist SVG is 40x80 viewBox, scaled ~0.9 and placed at (160, 48) */}
+      {/* We render the character inline by using foreignObject approach substitution:
+          Since Scientist is a React motion.svg, we embed it via foreignObject */}
+      <foreignObject x={142} y={44} width={56} height={76}>
+        <Scientist mood={mood} size={56} />
+      </foreignObject>
 
-      {/* celebratory ring on a new publication */}
-      {pubs > 0 && <circle key={`flash${s.publications}`} className="tt-pulse" cx={190} cy={120} r={60} fill="none" stroke="#f1c40f" strokeWidth={3} />}
+      {/* Layer — Tenure clock */}
+      <TenureClock term={s.term} maxTerms={s.maxTerms} />
 
-      <rect x={0} y={0} width={380} height={250} fill={tint} pointerEvents="none" />
-      {morale < 30 && <rect className="tt-flicker" x={0} y={0} width={380} height={250} fill="rgba(20,20,40,0.10)" pointerEvents="none" />}
-
-      {/* interactive hotspots last so highlights/labels sit on top */}
-      {hotspots}
+      {/* Layer 9 — Mood tint overlay */}
+      {s.meters.morale < 30 && (
+        <rect
+          x={0} y={0} width={480} height={220}
+          fill="rgba(20,20,60,0.12)"
+          className="tt-flicker"
+          pointerEvents="none"
+        />
+      )}
+      {s.meters.morale >= 65 && (
+        <rect
+          x={0} y={0} width={480} height={220}
+          fill="rgba(255,200,50,0.03)"
+          pointerEvents="none"
+        />
+      )}
     </svg>
   );
 }
