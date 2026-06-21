@@ -24,7 +24,7 @@ export const COSTS = {
   paper: { time: 3, money: 3_000, workload: 12, knowledgeRequired: 10 },
   grant: { time: 5, money: 1_000, workload: 8 },
   mentor: { time: 0.5, knowledge: 2, morale: 2, workload: 3 },
-  coffee: { time: 2, workload: 15, morale: 2 }, // time GAINED; morale LOST
+  coffee: { time: 2, workload: 12, morale: 0 }, // time GAINED; no morale hit (booster)
 } as const;
 
 // Paper acceptance: roll 2d6 + ⌊Rep/4⌋ ≥ threshold (§5 "2d6 on mid/top tiers").

@@ -23,3 +23,21 @@
 .tt-steam { transform-box: fill-box; transform-origin: center bottom; animation: tt-steam 2.2s ease-in-out infinite; }
 .tt-pulse { animation: tt-pulse 0.9s ease-out 1; }
 .tt-flicker { animation: tt-flicker 1.6s ease-in-out infinite; }
+
+/* --- app surface (presentation; cohesive warm light theme) --- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1100px 520px at 50% -8%, #f7f2e7, rgba(247, 242, 231, 0) 70%),
+    linear-gradient(#efe9dc, #e6dece);
+  background-attachment: fixed;
+  color: #22312f;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button { font-family: inherit; }
+:focus-visible { outline: 2px solid #2e4953; outline-offset: 2px; border-radius: 4px; }

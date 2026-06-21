@@ -9,15 +9,25 @@ import { cueForLog, isMuted, play, toggleMute } from "@/lib/sound";
 import { LabScene } from "./LabScene";
 import styles from "./GameBoard.module.css";
 
+// The four real actions — how you spend a term. Coffee is NOT here: it's a
+// booster (rendered separately) that buys time back, not a peer of these.
 const ACTIONS: { id: ActionId; label: string; hint: string }[] = [
-  { id: "experiment", label: "Experiment", hint: "−3 wk · −£4k → +6 Knowledge" },
-  { id: "paper", label: "Write paper", hint: "−3 wk · −£3k · needs 10 Know → 2d6" },
-  { id: "grant", label: "Write grant", hint: "−5 wk · −£1k → 2d6 for £15k" },
-  { id: "mentor", label: "Mentor", hint: "−½ day → +Know, +Morale, +loyalty" },
-  { id: "coffee", label: "☕ Coffee", hint: "+2 wk · +Workload · −Morale" },
+  { id: "experiment", label: "Run experiment", hint: "3 weeks · £4,000 → new data" },
+  { id: "paper", label: "Write paper", hint: "3 weeks · £3,000 · needs 10 Knowledge" },
+  { id: "grant", label: "Apply for grant", hint: "5 weeks · £1,000 → a shot at £15,000" },
+  { id: "mentor", label: "Mentor student", hint: "Half a day → progress + loyalty" },
 ];
 
-// Tween a number toward its target; snaps instantly under reduced motion.
+// Crisp monoline icons (currentColor) — replace the old emoji glyphs.
+const sIcon = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+const ICON: Record<ActionId, JSX.Element> = {
+  experiment: <svg {...sIcon}><path d="M9 3h6M10 3v5L5.6 16.4A2 2 0 0 0 7.4 19.4h9.2a2 2 0 0 0 1.8-3L14 8V3" /><path d="M8 14h8" /></svg>,
+  paper: <svg {...sIcon}><path d="M6 3h7l5 5v13H6z" /><path d="M13 3v5h5" /><path d="M9 13h6M9 16.5h6" /></svg>,
+  grant: <svg {...sIcon}><circle cx="12" cy="12" r="8.5" /><path d="M9.5 16h5M9 12.2h3.4M11 16v-4.7A2.4 2.4 0 0 1 15 9.8" /></svg>,
+  mentor: <svg {...sIcon}><circle cx="9" cy="8.5" r="3" /><path d="M3.8 19a5.2 5.2 0 0 1 10.4 0" /><path d="M15.5 6.2a3 3 0 0 1 0 5.6M16 13.6A5.2 5.2 0 0 1 20 18.5" /></svg>,
+  coffee: <svg {...sIcon}><path d="M4 8.5h12V13a4.5 4.5 0 0 1-4.5 4.5H8.5A4.5 4.5 0 0 1 4 13z" /><path d="M16 9.5h2.2a2.3 2.3 0 0 1 0 4.6H16" /><path d="M7 3.2c0 1 .9 1 .9 2M11 3.2c0 1 .9 1 .9 2" /></svg>,
+};
+
 function useCountUp(value: number, reduced: boolean): number {
   const [display, setDisplay] = useState(value);
   const from = useRef(value);
@@ -39,9 +49,7 @@ function MeterCard({ label, value, format, pct, color, reduced }: {
       <span className={styles.meterLabel}>{label}</span>
       <span className={styles.meterValue}>{format(display)}</span>
       {pct !== null && (
-        <span className={styles.gauge}>
-          <i style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
-        </span>
+        <span className={styles.gauge}><i style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} /></span>
       )}
     </div>
   );
@@ -64,9 +72,8 @@ export function GameBoard({
   const over = s.phase === "gameover";
   const career = s.mode === "career";
   const reduced = useReducedMotion() ?? false;
-  const tap = reduced ? undefined : { scale: 0.96 };
+  const tap = reduced ? undefined : { scale: 0.97 };
 
-  // Sound cues (M6) — unchanged.
   const [muted, setMuted] = useState(false);
   const lastLog = useRef<string | undefined>(undefined);
   const lastEvent = useRef<string | undefined>(undefined);
@@ -78,26 +85,26 @@ export function GameBoard({
     if (s.eventQueue[0] && s.eventQueue[0] !== lastEvent.current) play("event");
     lastEvent.current = s.eventQueue[0];
     if (s.log[0] !== lastLog.current) {
-      if (lastLog.current !== undefined) {
-        const c = cueForLog(s.log[0]);
-        if (c) play(c);
-      }
+      if (lastLog.current !== undefined) { const c = cueForLog(s.log[0]); if (c) play(c); }
       lastLog.current = s.log[0];
     }
   }, [s.log, s.eventQueue, s.outcome]);
 
-  // Rubber-stamp "thunk" when an event choice is taken.
-  const [stamp, setStamp] = useState<number | null>(null);
-  const handleChoose = (id: string) => {
-    onChoose(id);
-    if (!reduced) {
-      const k = performance.now();
-      setStamp(k);
-      setTimeout(() => setStamp((cur) => (cur === k ? null : cur)), 650);
+  // Outcome toast: surface the newest log line briefly, then let it fade.
+  const [toast, setToast] = useState<string | null>(null);
+  const toastSeen = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (s.log[0] && s.log[0] !== toastSeen.current) {
+      if (toastSeen.current !== undefined) {
+        setToast(s.log[0]);
+        const t = setTimeout(() => setToast(null), 2800);
+        toastSeen.current = s.log[0];
+        return () => clearTimeout(t);
+      }
+      toastSeen.current = s.log[0];
     }
-  };
+  }, [s.log]);
 
-  // Celebratory pulse when a publication lands (enhances the scene's ring).
   const prevPubs = useRef(s.publications);
   const [pulse, setPulse] = useState(0);
   useEffect(() => {
@@ -105,27 +112,30 @@ export function GameBoard({
     prevPubs.current = s.publications;
   }, [s.publications, reduced]);
 
+  const coffee = canDo(s, "coffee");
+
   return (
     <div className={styles.board}>
-      <div className={styles.scene}>
-        <LabScene s={s} onAct={onAct} />
-        <div className={styles.sceneTag}>
-          Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
-        </div>
+      {/* status */}
+      <div className={styles.status}>
+        <span className={styles.role}>{s.role === "pi" ? "PI" : "Junior"}</span>
+        <span className={styles.term}>Term {Math.min(s.term, s.maxTerms)} of {s.maxTerms}</span>
         <button className={styles.mute} onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"}>
-          {muted ? "🔇" : "🔊"}
+          {muted ? "Sound off" : "Sound on"}
         </button>
+      </div>
+
+      {/* the lab — display only (no per-object clicking) */}
+      <div className={styles.scene}>
+        <LabScene s={s} />
         {pulse > 0 && (
-          <motion.div
-            key={pulse}
-            initial={{ scale: 0.3, opacity: 0.85 }}
-            animate={{ scale: 1.6, opacity: 0 }}
+          <motion.div key={pulse} initial={{ scale: 0.3, opacity: 0.85 }} animate={{ scale: 1.6, opacity: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ position: "absolute", inset: "28%", border: "3px solid #f1c40f", borderRadius: "50%", pointerEvents: "none" }}
-          />
+            style={{ position: "absolute", inset: "28%", border: "3px solid #f1c40f", borderRadius: "50%", pointerEvents: "none" }} />
         )}
       </div>
 
+      {/* vital signs */}
       <div className={styles.meters}>
         <MeterCard label="Time" value={meters.time} format={(n) => `${Math.round(n)} wk`} pct={(meters.time / 11) * 100} color="#F4D43C" reduced={reduced} />
         <MeterCard label="Money" value={meters.money} format={(n) => `£${(n / 1000).toFixed(0)}k`} pct={(meters.money / 30000) * 100} color="#54B089" reduced={reduced} />
@@ -133,8 +143,71 @@ export function GameBoard({
         <MeterCard label="Rep" value={meters.reputation} format={(n) => `h-${Math.round(n)}`} pct={(meters.reputation / 15) * 100} color="#F1EAD9" reduced={reduced} />
       </div>
 
+      {/* outcome toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div className={styles.toast} initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* event document */}
+      {paused && ev && (
+        <div className={styles.docWrap}>
+          <div className={styles.doc}>
+            <div className={styles.kicker}>event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}</div>
+            <h2 className={styles.docTitle}>{ev.title}</h2>
+            <p className={styles.docBody}>{ev.body}</p>
+            <div className={styles.choices}>
+              {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
+                <motion.button key={c.id} className={styles.choice} onClick={() => onChoose(c.id)} whileTap={tap}>
+                  <span>{c.label}</span>
+                  {c.detail ? <span className={styles.choiceCost}>{c.detail}</span> : null}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* actions + booster + advance */}
+      {!over && !paused && (
+        <>
+          <div className={styles.actionsHead}>This term</div>
+          <div className={styles.actions}>
+            {ACTIONS.map(({ id, label, hint }) => {
+              const v = canDo(s, id);
+              return (
+                <motion.button key={id} className={styles.act} onClick={() => onAct(id)} disabled={!v.ok}
+                  title={v.ok ? hint : v.reason} whileTap={v.ok ? tap : undefined}>
+                  <span className={styles.actTop}>
+                    <span className={styles.actIcon}>{ICON[id]}</span>
+                    <span className={styles.actLabel}>{label}</span>
+                  </span>
+                  <span className={styles.actHint}>{v.ok ? hint : v.reason}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          {/* booster — coffee buys time back; distinct from actions */}
+          <motion.button className={styles.booster} onClick={() => onAct("coffee")} disabled={!coffee.ok}
+            title={coffee.ok ? "Buy time this term" : coffee.reason} whileTap={coffee.ok ? tap : undefined}>
+            <span className={styles.boosterIcon}>{ICON.coffee}</span>
+            <span className={styles.boosterText}>
+              <span className={styles.boosterLabel}>Coffee</span>
+              <span className={styles.boosterHint}>{coffee.ok ? "+2 weeks this term · raises Workload" : coffee.reason}</span>
+            </span>
+          </motion.button>
+
+          <motion.button className={styles.endTurn} onClick={onEndTurn} whileTap={tap}>End term ▸</motion.button>
+        </>
+      )}
+
+      {/* details, tucked away */}
       <details className={styles.hood} open={career}>
-        <summary>{career ? "resources" : "under the hood (hidden in final build)"}</summary>
+        <summary>{career ? "Details" : "Under the hood (hidden in final build)"}</summary>
         <div className={styles.hoodGrid}>
           <span>Workload <b>{s.workload}/100</b></span>
           <span>Knowledge <b>{s.knowledge}</b></span>
@@ -145,74 +218,10 @@ export function GameBoard({
         </div>
       </details>
 
-      {paused && ev && (
-        <div className={styles.docWrap}>
-          <div className={styles.doc}>
-            <div className={styles.kicker}>event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}</div>
-            <h2 className={styles.docTitle}>{ev.title}</h2>
-            <p className={styles.docBody}>{ev.body}</p>
-            <div className={styles.choices}>
-              {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
-                <motion.button key={c.id} className={styles.choice} onClick={() => handleChoose(c.id)} whileTap={tap}>
-                  <span>{c.label}</span>
-                  {c.detail ? <span className={styles.choiceCost}>{c.detail}</span> : null}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!over && !paused && (
-        <>
-          <div className={styles.dock}>
-            {ACTIONS.map(({ id, label, hint }) => {
-              const v = canDo(s, id);
-              return (
-                <motion.button
-                  key={id}
-                  className={`${styles.act} ${id === "coffee" ? styles.coffee : ""}`}
-                  onClick={() => onAct(id)}
-                  disabled={!v.ok}
-                  title={v.ok ? hint : v.reason}
-                  whileTap={v.ok ? tap : undefined}
-                >
-                  <span className={styles.actLabel}>{label}</span>
-                  <span className={styles.actHint}>{v.ok ? hint : v.reason}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-          <motion.button className={styles.endTurn} onClick={onEndTurn} whileTap={tap}>End term ▸</motion.button>
-        </>
-      )}
-
-      <div className={styles.log}>
-        <div className={styles.logHead}>log</div>
-        <ul>{s.log.map((line, i) => <li key={i}>{line}</li>)}</ul>
-      </div>
-
-      {/* rubber-stamp on an event choice */}
-      <AnimatePresence>
-        {stamp !== null && (
-          <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", zIndex: 60 }}>
-            <motion.div
-              key={stamp}
-              initial={{ scale: 2.2, opacity: 0, rotate: -18 }}
-              animate={{ scale: 1, opacity: 1, rotate: -8 }}
-              exit={{ opacity: 0, scale: 1.1 }}
-              transition={{ type: "spring", stiffness: 520, damping: 15 }}
-              style={{
-                padding: "8px 18px", border: "3px solid #c0392b", color: "#c0392b",
-                borderRadius: 8, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
-                fontSize: 22, letterSpacing: "0.1em", background: "rgba(241,234,217,0.92)",
-              }}
-            >
-              ✓ FILED
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <details className={styles.recent}>
+        <summary>Recent</summary>
+        <ul>{s.log.slice(0, 12).map((line, i) => <li key={i}>{line}</li>)}</ul>
+      </details>
     </div>
   );
 }

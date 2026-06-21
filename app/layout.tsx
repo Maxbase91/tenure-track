@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1a1a1a",
+  themeColor: "#ece5d6",
 };
 
 export default function RootLayout({
@@ -19,17 +19,11 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Base styles (background, font) live in globals.css so every screen shares
+  // one cohesive surface.
   return (
     <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          fontFamily: "system-ui, sans-serif",
-          lineHeight: 1.5,
-        }}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
