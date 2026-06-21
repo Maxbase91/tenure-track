@@ -14,7 +14,7 @@ Built milestone by milestone from `doc/tenure-track-v4-master-spec.md`.
   `lib/game/` (turn loop, event engine, scenarios), serialised to JSON
 - **Neon** serverless Postgres for the communal save pool (`@neondatabase/serverless`)
 
-## What's built (M0–M5)
+## What's built (M0–M6 — feature-complete)
 
 - **Turn loop & economy** — five actions (experiments, paper, grant, mentor,
   coffee), the Knowledge→paper pipeline, the funding economy, and the
@@ -29,6 +29,9 @@ Built milestone by milestone from `doc/tenure-track-v4-master-spec.md`.
   backend with public-write guardrails.
 - **AI + hotseat** — competitive matches of 2–4 players (rule-based utility-AI
   opponents + pass-the-phone humans), round-robin by term, with standings.
+- **Visuals & sound** — an isometric SVG "growing lab" that builds out with your
+  run (floor, equipment, students, framed papers, a Morale plant), CSS
+  animation, and a synthesized Web Audio sound layer with a mute toggle.
 
 ## Local development
 
@@ -54,4 +57,7 @@ the migration once against the production database.
 
 ## Roadmap
 
-- **M6** — isometric growing-lab visuals, sprites, sound
+All seven build milestones (M0–M6) from the spec are complete. Natural next
+steps beyond the spec: swap the SVG sprites for AI-generated raster art on a
+PixiJS canvas (§15), richer animation, and expanding the event pool past the 16
+seed events toward the ~40 the spec envisions.

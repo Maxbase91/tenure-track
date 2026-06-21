@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { activeEvent } from "@/lib/game/events/engine";
 import { canDo, eventPending } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
+import { cueForLog, isMuted, play, toggleMute } from "@/lib/sound";
+import { LabScene } from "./LabScene";
 import { Meter } from "./Meter";
 
 const ACTION_LABELS: { id: ActionId; label: string; hint: string }[] = [
@@ -32,10 +35,36 @@ export function GameBoard({
   const paused = eventPending(s);
   const over = s.phase === "gameover";
 
+  // Sound cues react to state changes (M6). Refs avoid replaying on remount.
+  const [muted, setMuted] = useState(false);
+  const lastLog = useRef<string | undefined>(undefined);
+  const lastEvent = useRef<string | undefined>(undefined);
+  const lastOutcome = useRef<string | null>(null);
+  useEffect(() => setMuted(isMuted()), []);
+  useEffect(() => {
+    if (s.outcome && s.outcome !== lastOutcome.current) play(s.outcome === "win" ? "win" : "loss");
+    lastOutcome.current = s.outcome;
+    if (s.eventQueue[0] && s.eventQueue[0] !== lastEvent.current) play("event");
+    lastEvent.current = s.eventQueue[0];
+    if (s.log[0] !== lastLog.current) {
+      if (lastLog.current !== undefined) {
+        const c = cueForLog(s.log[0]);
+        if (c) play(c);
+      }
+      lastLog.current = s.log[0];
+    }
+  }, [s.log, s.eventQueue, s.outcome]);
+
   return (
     <>
-      <div style={{ margin: "12px 0", fontWeight: "bold" }}>
-        Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
+      <LabScene s={s} />
+      <div style={{ margin: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontWeight: "bold" }}>
+          Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
+        </span>
+        <button onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"} style={{ padding: "2px 8px", cursor: "pointer" }}>
+          {muted ? "🔇" : "🔊"}
+        </button>
       </div>
 
       <section aria-label="Meters">
