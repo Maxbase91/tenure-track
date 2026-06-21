@@ -154,6 +154,9 @@ export function buildRun(config: SetupConfig): GameState {
 
     score: 0,
     log: [blurb],
+
+    poolId: null,
+    poolVersion: null,
   };
 }
 

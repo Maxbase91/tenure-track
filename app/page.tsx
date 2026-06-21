@@ -21,8 +21,8 @@ export default function Home() {
   const s = useGameStore();
   const { meters } = s;
 
-  // Setup flow gates the game (spec §3).
-  if (s.phase === "setup") return <SetupFlow onStart={s.start} />;
+  // Setup flow gates the game (spec §3); it also hosts the pool browser (§14).
+  if (s.phase === "setup") return <SetupFlow onStart={s.start} onOpen={s.openFromPool} />;
 
   const ev = activeEvent(s);
   const paused = eventPending(s);
@@ -56,6 +56,21 @@ export default function Home() {
         {s.hasPartner && <Meter label="Relationship" value={String(s.relationship)} unit="/ 100" muted />}
         <Meter label="Students" value={s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"} muted />
         <Meter label="Live fuses" value={s.fuses.map((f) => f.kind).join(", ") || "—"} muted />
+      </section>
+
+      {/* Communal pool sync (spec §14). */}
+      <section aria-label="Pool" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button onClick={() => s.saveToPool()} disabled={s.poolStatus === "saving"} style={{ padding: "6px 12px", cursor: s.poolStatus === "saving" ? "wait" : "pointer" }}>
+          {s.poolId ? "Save to pool" : "Publish to pool"}
+        </button>
+        <span style={{ fontSize: 13, color: "#777" }}>
+          {s.poolId ? `in pool · v${s.poolVersion}` : "not saved"}
+          {s.poolStatus === "saving" && " · saving…"}
+          {s.poolStatus === "saved" && " · saved ✓"}
+          {s.poolStatus === "stale" && " · reloaded"}
+          {s.poolStatus === "error" && " · error"}
+        </span>
+        {s.poolMessage && <span style={{ fontSize: 12, color: "#b00" }}>{s.poolMessage}</span>}
       </section>
 
       {paused && ev && (

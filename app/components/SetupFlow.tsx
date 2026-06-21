@@ -5,6 +5,7 @@ import { FIELDS, randomField, type FieldId } from "@/lib/game/fields";
 import { generateOffers, randomPersonName, type Offer } from "@/lib/game/offers";
 import { SCENARIOS, type SetupConfig } from "@/lib/game/scenarios";
 import type { ScenarioId } from "@/lib/game/types";
+import { PoolBrowser } from "./PoolBrowser";
 
 // The setup flow (spec §3): one to three screens, every step skippable with
 // Randomise. Career: partner → field → PhD offer draft → name. Quick:
@@ -15,7 +16,8 @@ const QUICK_SCENARIOS: ScenarioId[] = ["phd-crunch", "postdoc-gamble", "new-pi",
 const card: React.CSSProperties = { padding: "10px 12px", fontSize: 15, textAlign: "left", cursor: "pointer", border: "1px solid #ccc", background: "#fff" };
 const selected: React.CSSProperties = { ...card, border: "2px solid #333", background: "#f0f0f0" };
 
-export function SetupFlow({ onStart }: { onStart: (c: SetupConfig) => void }) {
+export function SetupFlow({ onStart, onOpen }: { onStart: (c: SetupConfig) => void; onOpen: (id: string) => void }) {
+  const [browsing, setBrowsing] = useState(false);
   const [step, setStep] = useState(0);
   const [scenario, setScenario] = useState<ScenarioId>("postdoc-gamble");
   const [hasPartner, setHasPartner] = useState(false);
@@ -63,10 +65,17 @@ export function SetupFlow({ onStart }: { onStart: (c: SetupConfig) => void }) {
     </div>
   );
 
+  if (browsing) return <PoolBrowser onOpen={onOpen} onBack={() => setBrowsing(false)} />;
+
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 4 }}>Tenure Track</h1>
       <p style={{ color: "#666", marginTop: 0 }}>New game — {step + 1} / {steps.length}</p>
+      {step === 0 && (
+        <button onClick={() => setBrowsing(true)} style={{ padding: "6px 10px", marginBottom: 12 }}>
+          Browse the communal pool →
+        </button>
+      )}
 
       {key === "scenario" && (
         <section>

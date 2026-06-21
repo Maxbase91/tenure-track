@@ -99,4 +99,10 @@ export interface GameState {
 
   score: number;
   log: string[]; // newest-first feedback lines
+
+  // Communal pool meta (spec §14). Set once a run is in the pool; poolVersion
+  // drives the optimistic-concurrency save guard. Persisted in jsonb but always
+  // overwritten by the row's own id/version on load.
+  poolId: string | null;
+  poolVersion: number | null;
 }
