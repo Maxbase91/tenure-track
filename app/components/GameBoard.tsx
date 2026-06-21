@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, animate, motion, useReducedMotion } from "framer-motion";
 import { activeEvent } from "@/lib/game/events/engine";
 import { canDo, eventPending } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
@@ -16,9 +17,36 @@ const ACTIONS: { id: ActionId; label: string; hint: string }[] = [
   { id: "coffee", label: "☕ Coffee", hint: "+2 wk · +Workload · −Morale" },
 ];
 
-// Presentational board — every transition arrives via callbacks, so this serves
-// both solo (useGameStore) and match (useMatchStore). Same engine APIs and sound
-// cues as before; only the presentation changed.
+// Tween a number toward its target; snaps instantly under reduced motion.
+function useCountUp(value: number, reduced: boolean): number {
+  const [display, setDisplay] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    if (reduced) { setDisplay(value); from.current = value; return; }
+    const controls = animate(from.current, value, { duration: 0.4, ease: "easeOut", onUpdate: (v) => setDisplay(v) });
+    from.current = value;
+    return () => controls.stop();
+  }, [value, reduced]);
+  return display;
+}
+
+function MeterCard({ label, value, format, pct, color, reduced }: {
+  label: string; value: number; format: (n: number) => string; pct: number | null; color: string; reduced: boolean;
+}) {
+  const display = useCountUp(value, reduced);
+  return (
+    <div className={styles.meter}>
+      <span className={styles.meterLabel}>{label}</span>
+      <span className={styles.meterValue}>{format(display)}</span>
+      {pct !== null && (
+        <span className={styles.gauge}>
+          <i style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function GameBoard({
   state: s,
   onAct,
@@ -35,6 +63,8 @@ export function GameBoard({
   const paused = eventPending(s);
   const over = s.phase === "gameover";
   const career = s.mode === "career";
+  const reduced = useReducedMotion() ?? false;
+  const tap = reduced ? undefined : { scale: 0.96 };
 
   // Sound cues (M6) — unchanged.
   const [muted, setMuted] = useState(false);
@@ -56,21 +86,27 @@ export function GameBoard({
     }
   }, [s.log, s.eventQueue, s.outcome]);
 
-  const meterCard = (label: string, value: string, pct: number | null, color: string) => (
-    <div className={styles.meter}>
-      <span className={styles.meterLabel}>{label}</span>
-      <span className={styles.meterValue}>{value}</span>
-      {pct !== null && (
-        <span className={styles.gauge}>
-          <i style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
-        </span>
-      )}
-    </div>
-  );
+  // Rubber-stamp "thunk" when an event choice is taken.
+  const [stamp, setStamp] = useState<number | null>(null);
+  const handleChoose = (id: string) => {
+    onChoose(id);
+    if (!reduced) {
+      const k = performance.now();
+      setStamp(k);
+      setTimeout(() => setStamp((cur) => (cur === k ? null : cur)), 650);
+    }
+  };
+
+  // Celebratory pulse when a publication lands (enhances the scene's ring).
+  const prevPubs = useRef(s.publications);
+  const [pulse, setPulse] = useState(0);
+  useEffect(() => {
+    if (s.publications > prevPubs.current && !reduced) setPulse((p) => p + 1);
+    prevPubs.current = s.publications;
+  }, [s.publications, reduced]);
 
   return (
     <div className={styles.board}>
-      {/* the isometric lab — your existing scene, now framed */}
       <div className={styles.scene}>
         <LabScene s={s} onAct={onAct} />
         <div className={styles.sceneTag}>
@@ -79,17 +115,24 @@ export function GameBoard({
         <button className={styles.mute} onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"}>
           {muted ? "🔇" : "🔊"}
         </button>
+        {pulse > 0 && (
+          <motion.div
+            key={pulse}
+            initial={{ scale: 0.3, opacity: 0.85 }}
+            animate={{ scale: 1.6, opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ position: "absolute", inset: "28%", border: "3px solid #f1c40f", borderRadius: "50%", pointerEvents: "none" }}
+          />
+        )}
       </div>
 
-      {/* the four meters as instruments */}
       <div className={styles.meters}>
-        {meterCard("Time", `${meters.time} wk`, (meters.time / 11) * 100, "#F4D43C")}
-        {meterCard("Money", `£${(meters.money / 1000).toFixed(0)}k`, (meters.money / 30000) * 100, "#54B089")}
-        {meterCard("Morale", `${meters.morale}`, meters.morale, meters.morale < 30 ? "#D85850" : "#54B089")}
-        {meterCard("Rep", `h-${meters.reputation}`, (meters.reputation / 15) * 100, "#F1EAD9")}
+        <MeterCard label="Time" value={meters.time} format={(n) => `${Math.round(n)} wk`} pct={(meters.time / 11) * 100} color="#F4D43C" reduced={reduced} />
+        <MeterCard label="Money" value={meters.money} format={(n) => `£${(n / 1000).toFixed(0)}k`} pct={(meters.money / 30000) * 100} color="#54B089" reduced={reduced} />
+        <MeterCard label="Morale" value={meters.morale} format={(n) => `${Math.round(n)}`} pct={meters.morale} color={meters.morale < 30 ? "#D85850" : "#54B089"} reduced={reduced} />
+        <MeterCard label="Rep" value={meters.reputation} format={(n) => `h-${Math.round(n)}`} pct={(meters.reputation / 15) * 100} color="#F1EAD9" reduced={reduced} />
       </div>
 
-      {/* under the hood */}
       <details className={styles.hood} open={career}>
         <summary>{career ? "resources" : "under the hood (hidden in final build)"}</summary>
         <div className={styles.hoodGrid}>
@@ -102,7 +145,6 @@ export function GameBoard({
         </div>
       </details>
 
-      {/* event document */}
       {paused && ev && (
         <div className={styles.docWrap}>
           <div className={styles.doc}>
@@ -111,45 +153,66 @@ export function GameBoard({
             <p className={styles.docBody}>{ev.body}</p>
             <div className={styles.choices}>
               {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
-                <button key={c.id} className={styles.choice} onClick={() => onChoose(c.id)}>
+                <motion.button key={c.id} className={styles.choice} onClick={() => handleChoose(c.id)} whileTap={tap}>
                   <span>{c.label}</span>
                   {c.detail ? <span className={styles.choiceCost}>{c.detail}</span> : null}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* action dock + end turn */}
       {!over && !paused && (
         <>
           <div className={styles.dock}>
             {ACTIONS.map(({ id, label, hint }) => {
               const v = canDo(s, id);
               return (
-                <button
+                <motion.button
                   key={id}
                   className={`${styles.act} ${id === "coffee" ? styles.coffee : ""}`}
                   onClick={() => onAct(id)}
                   disabled={!v.ok}
                   title={v.ok ? hint : v.reason}
+                  whileTap={v.ok ? tap : undefined}
                 >
                   <span className={styles.actLabel}>{label}</span>
                   <span className={styles.actHint}>{v.ok ? hint : v.reason}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-          <button className={styles.endTurn} onClick={onEndTurn}>End term ▸</button>
+          <motion.button className={styles.endTurn} onClick={onEndTurn} whileTap={tap}>End term ▸</motion.button>
         </>
       )}
 
-      {/* log */}
       <div className={styles.log}>
         <div className={styles.logHead}>log</div>
         <ul>{s.log.map((line, i) => <li key={i}>{line}</li>)}</ul>
       </div>
+
+      {/* rubber-stamp on an event choice */}
+      <AnimatePresence>
+        {stamp !== null && (
+          <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", pointerEvents: "none", zIndex: 60 }}>
+            <motion.div
+              key={stamp}
+              initial={{ scale: 2.2, opacity: 0, rotate: -18 }}
+              animate={{ scale: 1, opacity: 1, rotate: -8 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              transition={{ type: "spring", stiffness: 520, damping: 15 }}
+              style={{
+                padding: "8px 18px", border: "3px solid #c0392b", color: "#c0392b",
+                borderRadius: 8, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700,
+                fontSize: 22, letterSpacing: "0.1em", background: "rgba(241,234,217,0.92)",
+              }}
+            >
+              ✓ FILED
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

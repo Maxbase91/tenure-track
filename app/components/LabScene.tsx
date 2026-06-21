@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { canDo } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
 
@@ -88,12 +89,13 @@ function Hotspot({
 }) {
   const key = `${id}@${x},${y}`; // unique per placement (experiment has several)
   const isActive = active === key;
+  const reduced = useReducedMotion() ?? false;
   const fire = () => { if (enabled) onAct(id); };
   // Functional updates: only clear if *this* hotspot is still the active one,
   // so moving focus/hover between hotspots can't stomp the new one to null.
   const leave = () => setActive((a) => (a === key ? null : a));
   return (
-    <g
+    <motion.g
       role="button"
       tabIndex={enabled ? 0 : -1}
       aria-label={`${label}. ${text}`}
@@ -104,7 +106,8 @@ function Hotspot({
       onPointerLeave={leave}
       onFocus={() => setActive(key)}
       onBlur={leave}
-      style={{ cursor: enabled ? "pointer" : "not-allowed", outline: "none" }}
+      whileTap={enabled && !reduced ? { scale: 0.92 } : undefined}
+      style={{ cursor: enabled ? "pointer" : "not-allowed", outline: "none", transformBox: "fill-box", transformOrigin: "center" }}
     >
       <rect x={x} y={y} width={w} height={h} fill="transparent" />
       {!enabled && <rect x={x} y={y} width={w} height={h} rx={6} fill="rgba(236,230,216,0.5)" />}
@@ -114,7 +117,7 @@ function Hotspot({
           stroke={enabled ? "#f4d43c" : "#d85850"} strokeWidth={2} />
       )}
       {isActive && <Tooltip cx={x + w / 2} top={y} label={label} text={text} />}
-    </g>
+    </motion.g>
   );
 }
 
