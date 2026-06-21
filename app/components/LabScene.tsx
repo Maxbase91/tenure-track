@@ -1,15 +1,26 @@
 "use client";
 
-import type { GameState } from "@/lib/game/types";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import { canDo } from "@/lib/game/machine";
+import type { ActionId, GameState } from "@/lib/game/types";
 
-// The isometric "growing lab" (spec §16 M6). Pure SVG, driven entirely by
-// GameState: the floor and kit grow with Reputation, publications hang on the
-// back wall, students bob, the haunted centrifuge spins, coffee steams, and a
-// plant tracks Morale. AI-generated raster sprites can replace these vector
-// sprites later on the PixiJS path (§15).
+// The isometric "growing lab" (spec §16 M6), now interactive (Stage 2): objects
+// are tappable/focusable controls that dispatch the five actions via onAct. The
+// scene stays presentational — it only calls the callback; canDo gates each
+// hotspot. The GameBoard action dock remains as the labelled fallback.
 
 const TW = 44; // iso tile width
 const TH = 22; // iso tile height
+
+// Same labels/hints as the action dock (duplicated to avoid a GameBoard↔Scene
+// import cycle). Shown on hover / focus; tap fires the action.
+const INFO: Record<ActionId, { label: string; hint: string }> = {
+  experiment: { label: "Experiment", hint: "−3 wk · −£4k → +6 Knowledge" },
+  paper: { label: "Write paper", hint: "−3 wk · −£3k · needs 10 Know" },
+  grant: { label: "Write grant", hint: "−5 wk · −£1k → 2d6 for £15k" },
+  mentor: { label: "Mentor", hint: "−½ day → +Know, +Morale" },
+  coffee: { label: "Coffee", hint: "+2 wk · +Workload · −Morale" },
+};
 
 function proj(col: number, row: number, ox: number, oy: number) {
   return { x: ox + (col - row) * (TW / 2), y: oy + (col + row) * (TH / 2) };
@@ -23,7 +34,6 @@ function darken(hex: string, f: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
-// An iso cuboid sitting on tile centre (cx, cy), footprint `size`, height H.
 function IsoBox({ cx, cy, size, h, base }: { cx: number; cy: number; size: number; h: number; base: string }) {
   const tw = (TW / 2) * size;
   const th = (TH / 2) * size;
@@ -54,11 +64,68 @@ function Student({ cx, cy, loyalty, delay }: { cx: number; cy: number; loyalty: 
   );
 }
 
-export function LabScene({ s }: { s: GameState }) {
+// Floating SVG label (clamped to the viewBox; flips below if it would clip top).
+function Tooltip({ cx, top, label, text }: { cx: number; top: number; label: string; text: string }) {
+  const w = 158, h = 30;
+  const x = Math.max(4, Math.min(376 - w, cx - w / 2));
+  const y = top - h - 6 < 4 ? top + 8 : top - h - 6;
+  return (
+    <g pointerEvents="none">
+      <rect x={x} y={y} width={w} height={h} rx={6} fill="rgba(27,42,50,0.95)" />
+      <text x={x + 9} y={y + 13} fontSize={10} fontWeight={700} fill="#f1ead9">{label}</text>
+      <text x={x + 9} y={y + 25} fontSize={9} fill="#9fb2b9" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{text}</text>
+    </g>
+  );
+}
+
+// A focusable, accessible interaction layer over an already-drawn object.
+function Hotspot({
+  id, label, text, enabled, x, y, w, h, active, setActive, onAct,
+}: {
+  id: ActionId; label: string; text: string; enabled: boolean;
+  x: number; y: number; w: number; h: number;
+  active: string | null; setActive: Dispatch<SetStateAction<string | null>>; onAct: (a: ActionId) => void;
+}) {
+  const key = `${id}@${x},${y}`; // unique per placement (experiment has several)
+  const isActive = active === key;
+  const fire = () => { if (enabled) onAct(id); };
+  // Functional updates: only clear if *this* hotspot is still the active one,
+  // so moving focus/hover between hotspots can't stomp the new one to null.
+  const leave = () => setActive((a) => (a === key ? null : a));
+  return (
+    <g
+      role="button"
+      tabIndex={enabled ? 0 : -1}
+      aria-label={`${label}. ${text}`}
+      aria-disabled={!enabled}
+      onClick={fire}
+      onKeyDown={(e) => { if (enabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fire(); } }}
+      onPointerEnter={() => setActive(key)}
+      onPointerLeave={leave}
+      onFocus={() => setActive(key)}
+      onBlur={leave}
+      style={{ cursor: enabled ? "pointer" : "not-allowed", outline: "none" }}
+    >
+      <rect x={x} y={y} width={w} height={h} fill="transparent" />
+      {!enabled && <rect x={x} y={y} width={w} height={h} rx={6} fill="rgba(236,230,216,0.5)" />}
+      {isActive && (
+        <rect x={x} y={y} width={w} height={h} rx={6}
+          fill={enabled ? "rgba(244,212,60,0.16)" : "rgba(216,88,80,0.10)"}
+          stroke={enabled ? "#f4d43c" : "#d85850"} strokeWidth={2} />
+      )}
+      {isActive && <Tooltip cx={x + w / 2} top={y} label={label} text={text} />}
+    </g>
+  );
+}
+
+export function LabScene({ s, onAct }: { s: GameState; onAct?: (a: ActionId) => void }) {
+  const [active, setActive] = useState<string | null>(null);
+
   const rep = s.meters.reputation;
   const level = rep >= 12 ? 3 : rep >= 8 ? 2 : rep >= 4 ? 1 : 0;
   const n = Math.min(5, 3 + level); // floor grows with Reputation
   const ox = 190, oy = 92;
+  const back = (c: number, r: number) => proj(c, r, ox, oy);
 
   // Floor tiles.
   const tiles = [];
@@ -79,43 +146,61 @@ export function LabScene({ s }: { s: GameState }) {
     </g>
   ));
 
-  // Equipment placed on tiles (back-to-front order is roughly handled by layout).
-  const back = (c: number, r: number) => proj(c, r, ox, oy);
   const fr = back(n - 1, 0); // freezer (back-right)
   const cf = back(0, 0); // centrifuge (back-left)
   const cm = back(n - 1, n - 1); // coffee machine (front-right)
   const pl = back(0, n - 1); // plant (front-left)
 
-  // Morale-driven plant.
+  // New foreground furniture: a writing desk (paper) and a filing cabinet (grant).
+  const frontY = oy + (n - 1) * (TH / 2 + TH / 2); // ~ front-row centre y
+  const desk = { x: 150, y: frontY + 18 };
+  const filing = { x: 238, y: frontY + 18 };
+
   const morale = s.meters.morale;
   const leaf = morale >= 60 ? "#4caf50" : morale >= 30 ? "#9e9d24" : "#8d6e63";
   const droop = morale >= 60 ? 0 : morale >= 30 ? 6 : 14;
 
-  // Workload clutter: scattered paper scraps, more as it climbs.
   const clutter = Math.min(8, Math.floor(s.workload / 12));
   const scraps = Array.from({ length: clutter }, (_, i) => {
     const t = back(1 + (i % Math.max(1, n - 2)), 1 + ((i * 2) % Math.max(1, n - 1)));
     return <rect key={`s${i}`} x={t.x - 4 + (i % 3) * 3} y={t.y - 2} width={6} height={4} fill="#cfc8ba" transform={`rotate(${(i * 37) % 60 - 30} ${t.x} ${t.y})`} />;
   });
 
-  // Benches across the back rows (grow with level).
-  const benches = [];
-  for (let c = 1; c < n - 1; c++) {
-    const b = back(c, 1);
-    benches.push(<IsoBox key={`b${c}`} cx={b.x} cy={b.y} size={0.8} h={9} base="#c9b79a" />);
-  }
+  // Benches.
+  const benchPos: { x: number; y: number }[] = [];
+  for (let c = 1; c < n - 1; c++) benchPos.push(back(c, 1));
+  const benches = benchPos.map((b, i) => <IsoBox key={`b${i}`} cx={b.x} cy={b.y} size={0.8} h={9} base="#c9b79a" />);
 
   // Students.
-  const students = s.students.slice(0, 4).map((st, i) => {
-    const t = back(1 + (i % 2), 2 + (i % 2));
-    return <Student key={`st${i}`} cx={t.x} cy={t.y} loyalty={st.loyalty} delay={i * 0.4} />;
-  });
+  const studentPos = s.students.slice(0, 4).map((_, i) => back(1 + (i % 2), 2 + (i % 2)));
+  const students = s.students.slice(0, 4).map((st, i) => (
+    <Student key={`st${i}`} cx={studentPos[i].x} cy={studentPos[i].y} loyalty={st.loyalty} delay={i * 0.4} />
+  ));
 
-  // Morale lighting overlay.
   const tint = morale >= 60 ? "rgba(255,206,84,0.07)" : morale < 30 ? "rgba(70,100,200,0.12)" : "rgba(0,0,0,0)";
 
+  // --- interaction layer -----------------------------------------------------
+  const av = (id: ActionId) => canDo(s, id);
+  const hot = (id: ActionId, x: number, y: number, w: number, h: number) => {
+    const v = av(id);
+    return (
+      <Hotspot key={`h-${id}-${x}-${y}`} id={id} label={INFO[id].label}
+        text={v.ok ? INFO[id].hint : v.reason ?? ""} enabled={!!onAct && v.ok}
+        x={x} y={y} w={w} h={h} active={active} setActive={setActive} onAct={onAct ?? (() => {})} />
+    );
+  };
+  const hotspots = onAct ? [
+    ...benchPos.map((b) => hot("experiment", b.x - 18, b.y - 20, 36, 28)),
+    ...(level >= 1 ? [hot("experiment", fr.x - 16, fr.y - 44, 32, 54)] : []),
+    hot("coffee", cm.x - 13, cm.y - 26, 26, 40),
+    ...studentPos.map((t) => hot("mentor", t.x - 10, t.y - 24, 20, 30)),
+    hot("paper", desk.x - 18, desk.y - 28, 36, 36),
+    hot("grant", filing.x - 14, filing.y - 32, 28, 42),
+  ] : [];
+
   return (
-    <svg viewBox="0 0 380 250" width="100%" style={{ display: "block", background: "linear-gradient(#f5f2ea,#ece6d8)", borderRadius: 8 }} role="img" aria-label="Your lab">
+    <svg viewBox="0 0 380 250" width="100%" style={{ display: "block", background: "linear-gradient(#f5f2ea,#ece6d8)", borderRadius: 8 }}
+      role={onAct ? "group" : "img"} aria-label={onAct ? "Your lab — tap an object to act" : "Your lab"}>
       {/* back wall */}
       <rect x={20} y={6} width={340} height={36} fill="#f0ece2" />
       {papers}
@@ -132,7 +217,7 @@ export function LabScene({ s }: { s: GameState }) {
         </g>
       </g>
 
-      {/* −80 freezer (appears once the lab has any standing) */}
+      {/* −80 freezer */}
       {level >= 1 && (
         <g>
           <IsoBox cx={fr.x} cy={fr.y} size={0.8} h={40} base="#dfe7ee" />
@@ -143,6 +228,25 @@ export function LabScene({ s }: { s: GameState }) {
 
       {benches}
       {students}
+
+      {/* writing desk + monitor (Write paper) */}
+      <g>
+        <IsoBox cx={desk.x} cy={desk.y} size={0.7} h={7} base="#8a6f52" />
+        <IsoBox cx={desk.x} cy={desk.y - 7} size={0.34} h={12} base="#2e3b42" />
+        <rect x={desk.x - 6} y={desk.y - 19} width={12} height={8} rx={1} fill="#86b6cc" />
+        <rect x={desk.x - 7} y={desk.y - 5} width={14} height={3} rx={1} fill="#cbb79a" />
+      </g>
+
+      {/* filing cabinet (Write grant) */}
+      <g>
+        <IsoBox cx={filing.x} cy={filing.y} size={0.45} h={26} base="#6b7b86" />
+        {[8, 15, 22].map((dy) => (
+          <g key={dy}>
+            <line x1={filing.x - 7} y1={filing.y - dy} x2={filing.x + 7} y2={filing.y - dy + 3.5} stroke="#46535c" strokeWidth={1} />
+            <rect x={filing.x - 2} y={filing.y - dy + 1} width={4} height={2} fill="#cdd6db" />
+          </g>
+        ))}
+      </g>
 
       {/* coffee machine + steam */}
       <g>
@@ -171,11 +275,14 @@ export function LabScene({ s }: { s: GameState }) {
         <text x={350} y={46} textAnchor="middle" fontSize={8} fill="#666">{Math.min(s.term, s.maxTerms)}/{s.maxTerms}</text>
       </g>
 
-      {/* celebratory ring on a new publication (re-keys to replay) */}
+      {/* celebratory ring on a new publication */}
       {pubs > 0 && <circle key={`flash${s.publications}`} className="tt-pulse" cx={190} cy={120} r={60} fill="none" stroke="#f1c40f" strokeWidth={3} />}
 
       <rect x={0} y={0} width={380} height={250} fill={tint} pointerEvents="none" />
       {morale < 30 && <rect className="tt-flicker" x={0} y={0} width={380} height={250} fill="rgba(20,20,40,0.10)" pointerEvents="none" />}
+
+      {/* interactive hotspots last so highlights/labels sit on top */}
+      {hotspots}
     </svg>
   );
 }

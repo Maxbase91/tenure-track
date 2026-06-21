@@ -72,7 +72,7 @@ export function GameBoard({
     <div className={styles.board}>
       {/* the isometric lab — your existing scene, now framed */}
       <div className={styles.scene}>
-        <LabScene s={s} />
+        <LabScene s={s} onAct={onAct} />
         <div className={styles.sceneTag}>
           Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
         </div>
