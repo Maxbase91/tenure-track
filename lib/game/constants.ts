@@ -63,6 +63,19 @@ export const BURNOUT = { morale: 0, workload: 100 } as const;
 // Score rewards overshoot so turn 5 stays tense once the binary win is locked.
 export const SCORE = { repWeight: 3, moneyScale: 5_000, pubWeight: 5 } as const;
 
+// Partner thread (spec §13, §17 "relationship decay rate"). Relationship is a
+// hidden 0–100 value that buffers/drains Morale; neglect decays it.
+export const PARTNER = {
+  start: 70,
+  decayPerTerm: 4, // the slow cost of never spending Time on them
+  healthyThreshold: 60, // ≥ this → a small Morale buffer each term
+  healthyMoraleBuffer: 3,
+  lowThreshold: 30, // < this → Morale penalty + drift toward breakup
+  lowMoralePenalty: 4,
+  breakupThreshold: 15, // ≤ this → the Drifting Apart event fires
+  marriedToLabTime: 1, // +Time/term after a breakup (the bleak payoff)
+} as const;
+
 // Event engine (spec §10) tunables (§17 "event frequency").
 export const EVENTS = {
   drawChance: 0.85, // chance an eligible event is drawn at a term boundary

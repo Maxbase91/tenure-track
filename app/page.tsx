@@ -1,10 +1,13 @@
 "use client";
 
+import { FIELD_BY_ID } from "@/lib/game/fields";
 import { activeEvent } from "@/lib/game/events/engine";
 import { canDo, eventPending } from "@/lib/game/machine";
+import { SCENARIOS } from "@/lib/game/scenarios";
 import { useGameStore } from "@/lib/game/store";
 import type { ActionId } from "@/lib/game/types";
 import { Meter } from "./components/Meter";
+import { SetupFlow } from "./components/SetupFlow";
 
 const ACTION_LABELS: { id: ActionId; label: string; hint: string }[] = [
   { id: "experiment", label: "Run experiment", hint: "−3 wk, −£4,000 → +6 Knowledge" },
@@ -17,16 +20,23 @@ const ACTION_LABELS: { id: ActionId; label: string; hint: string }[] = [
 export default function Home() {
   const s = useGameStore();
   const { meters } = s;
+
+  // Setup flow gates the game (spec §3).
+  if (s.phase === "setup") return <SetupFlow onStart={s.start} />;
+
   const ev = activeEvent(s);
   const paused = eventPending(s);
 
   return (
     <main style={{ maxWidth: 520, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 4 }}>Tenure Track</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>Quick mode — The Postdoc Gamble</p>
+      <p style={{ color: "#666", marginTop: 0 }}>
+        {s.scientistName} · {SCENARIOS[s.scenario].label} · {FIELD_BY_ID[s.field].label}
+        {s.hasPartner ? ` · with ${s.partnerName}` : " · solo"}
+      </p>
 
       <div style={{ margin: "12px 0", fontWeight: "bold" }}>
-        Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms}
+        Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
       </div>
 
       <section aria-label="Meters">
@@ -38,48 +48,30 @@ export default function Home() {
 
       <section aria-label="Under the hood" style={{ marginTop: 8 }}>
         <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>
-          under the hood (hidden in final build)
+          {s.mode === "career" ? "resources" : "under the hood (hidden in final build)"}
         </div>
         <Meter label="Workload" value={String(s.workload)} unit="/ 100" muted />
         <Meter label="Knowledge" value={String(s.knowledge)} muted />
         <Meter label="Publications" value={String(s.publications)} muted />
-        <Meter
-          label="Students"
-          value={s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"}
-          muted
-        />
-        <Meter
-          label="Live fuses"
-          value={s.fuses.map((f) => f.kind).join(", ") || "—"}
-          muted
-        />
+        {s.hasPartner && <Meter label="Relationship" value={String(s.relationship)} unit="/ 100" muted />}
+        <Meter label="Students" value={s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"} muted />
+        <Meter label="Live fuses" value={s.fuses.map((f) => f.kind).join(", ") || "—"} muted />
       </section>
 
-      {/* Event modal (spec §10): blocks actions until resolved. */}
       {paused && ev && (
-        <section
-          aria-label="Event"
-          style={{ marginTop: 16, border: "2px solid #333", padding: 12, background: "#fafafa" }}
-        >
+        <section aria-label="Event" style={{ marginTop: 16, border: "2px solid #333", padding: 12, background: "#fafafa" }}>
           <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>
             event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}
           </div>
           <h2 style={{ margin: "4px 0" }}>{ev.title}</h2>
           <p style={{ fontStyle: "italic", color: "#555", marginTop: 0 }}>{ev.body}</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {ev
-              .choices(s)
-              .filter((c) => !c.available || c.available(s))
-              .map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => s.choose(c.id)}
-                  style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: "pointer" }}
-                >
-                  <strong>{c.label}</strong>
-                  {c.detail ? <span style={{ color: "#777" }}> — {c.detail}</span> : null}
-                </button>
-              ))}
+            {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
+              <button key={c.id} onClick={() => s.choose(c.id)} style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: "pointer" }}>
+                <strong>{c.label}</strong>
+                {c.detail ? <span style={{ color: "#777" }}> — {c.detail}</span> : null}
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -90,13 +82,8 @@ export default function Home() {
             {ACTION_LABELS.map(({ id, label, hint }) => {
               const v = canDo(s, id);
               return (
-                <button
-                  key={id}
-                  onClick={() => s.act(id)}
-                  disabled={!v.ok}
-                  title={v.ok ? hint : v.reason}
-                  style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: v.ok ? "pointer" : "not-allowed" }}
-                >
+                <button key={id} onClick={() => s.act(id)} disabled={!v.ok} title={v.ok ? hint : v.reason}
+                  style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: v.ok ? "pointer" : "not-allowed" }}>
                   <strong>{label}</strong> — {v.ok ? hint : v.reason}
                 </button>
               );
@@ -119,18 +106,14 @@ export default function Home() {
               (3×Rep {3 * meters.reputation} + £/5k {Math.round(meters.money / 5000)} + 5×Pubs {5 * s.publications})
             </span>
           </p>
-          <button onClick={s.reset} style={{ padding: "10px 16px", fontSize: 16, cursor: "pointer" }}>
-            New Run
-          </button>
+          <button onClick={s.reset} style={{ padding: "10px 16px", fontSize: 16, cursor: "pointer" }}>New Run</button>
         </section>
       )}
 
       <section aria-label="Log" style={{ marginTop: 20 }}>
         <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>log</div>
         <ul style={{ paddingLeft: 18, margin: "4px 0", color: "#444", fontSize: 14 }}>
-          {s.log.map((line, i) => (
-            <li key={i} style={{ marginBottom: 2 }}>{line}</li>
-          ))}
+          {s.log.map((line, i) => <li key={i} style={{ marginBottom: 2 }}>{line}</li>)}
         </ul>
       </section>
     </main>

@@ -63,6 +63,11 @@ export function adjustStudent(
   };
 }
 
+// Partner thread (spec §13): nudge the hidden Relationship value, clamped.
+export function adjustRel(s: GameState, delta: number): GameState {
+  return { ...s, relationship: clamp(s.relationship + delta, 0, 100) };
+}
+
 export function addStudent(s: GameState, name: string, loyalty: number): GameState {
   if (s.students.some((st) => st.name === name)) return s;
   return { ...s, students: [...s.students, { name, loyalty }] };

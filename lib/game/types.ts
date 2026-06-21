@@ -5,10 +5,15 @@
 // will be written to Neon as jsonb. Event/fuse *logic* lives in code registries
 // keyed by id (see lib/game/events). State only ever holds ids, counters, flags.
 
-export type Phase = "playing" | "gameover";
+import type { FieldId } from "./fields";
+
+export type Phase = "setup" | "playing" | "gameover";
 export type Outcome = "win" | "loss" | null;
 
+export type Mode = "career" | "quick";
+
 export type ScenarioId =
+  | "career"
   | "postdoc-gamble"
   | "phd-crunch"
   | "new-pi"
@@ -48,7 +53,9 @@ export type FuseKind =
   | "phack-retraction" // #9: rising-probability retraction
   | "imposter-relapse" // #10: buried imposter syndrome resurfaces
   | "marsh-enemy" // #11: escalation made an enemy
-  | "leaving-academia"; // #15: pushed through burnout → possible run-ender
+  | "leaving-academia" // #15: pushed through burnout → possible run-ender
+  | "promise-underload" // P2: promised to ease off — must under-load next term
+  | "partner-plateau"; // P4: said "not yet" — the relationship plateaus
 
 export interface ActiveFuse {
   kind: FuseKind;
@@ -60,7 +67,10 @@ export interface ActiveFuse {
 export interface GameState {
   phase: Phase;
   outcome: Outcome;
+  mode: Mode;
   scenario: ScenarioId;
+  field: FieldId;
+  scientistName: string;
   role: Role;
   term: number;
   maxTerms: number;
@@ -74,7 +84,14 @@ export interface GameState {
 
   // Event/karma layer (spec §8, §10).
   students: Student[];
-  hasPartner: boolean; // gates the Ellie thread (full partner thread is M3)
+
+  // Partner thread (spec §13). hasPartner gates the whole thread; relationship
+  // is a hidden 0–100 value that buffers/drains Morale. No new visible meter.
+  hasPartner: boolean;
+  partnerName: string | null;
+  partnerField: FieldId | null;
+  relationship: number; // 0–100, starts ~70; meaningless if !hasPartner
+
   fuses: ActiveFuse[];
   flags: Record<string, number>; // misc counters/locks (e.g. funder-closed, donor-lock)
   seenEvents: string[]; // once-per-run guard

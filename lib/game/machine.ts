@@ -7,6 +7,7 @@ import {
   END_OF_TERM,
   EVENTS,
   GRANT,
+  PARTNER,
   PAPER,
   SCORE,
   WEEKS_PER_TERM,
@@ -14,7 +15,7 @@ import {
 import { rollD6, roll2d6 } from "./dice";
 import { adjustStudent, getFlag, setFlag } from "./events/effects";
 import { chooseEvent, drawEvent, enqueue, resolveFuses } from "./events/engine";
-import { POSTDOC_GAMBLE, startState } from "./scenarios";
+import { SCENARIOS, buildRun, setupPlaceholder, type SetupConfig } from "./scenarios";
 import type { ActionId, GameState } from "./types";
 
 const clamp = (n: number, lo: number, hi: number) =>
@@ -26,12 +27,17 @@ function log(s: GameState, line: string): string[] {
 
 // --- lifecycle -------------------------------------------------------------
 
+// The store boots into the setup flow; a real run is built by startRun(config).
 export function initialState(): GameState {
-  return startState(POSTDOC_GAMBLE);
+  return setupPlaceholder();
+}
+
+export function startRun(config: SetupConfig): GameState {
+  return buildRun(config);
 }
 
 export function reset(): GameState {
-  return initialState();
+  return setupPlaceholder();
 }
 
 // An event modal is open → the turn is paused; nothing else may act.
@@ -177,8 +183,9 @@ export function writeGrant(s: GameState): GameState {
   if (better) base = setFlag(base, "grantBetterOdds", 0);
 
   if (won) {
+    const grantsWon = getFlag(base, "grantsWon") + 1; // tracked for New PI win (§5)
     return {
-      ...base,
+      ...setFlag(base, "grantsWon", grantsWon),
       meters: { ...base.meters, money: base.meters.money + GRANT.award },
       log: log(s, `Grant FUNDED (rolled ${total}+${bonus}≥${GRANT.threshold}): +£${GRANT.award.toLocaleString()}.`),
     };
@@ -288,12 +295,27 @@ export function endTurn(s: GameState): GameState {
     notes.push("−4 Morale (long-distance)");
   }
 
+  // Partner thread (spec §13): neglect decays the relationship; a healthy one
+  // buffers Morale, a strained one drains it. The partner modifies Morale only.
+  let relationship = s.relationship;
+  if (s.hasPartner) {
+    relationship = clamp(relationship - PARTNER.decayPerTerm, 0, 100);
+    if (relationship >= PARTNER.healthyThreshold) {
+      morale += PARTNER.healthyMoraleBuffer;
+      notes.push(`+${PARTNER.healthyMoraleBuffer} Morale (partner)`);
+    } else if (relationship < PARTNER.lowThreshold) {
+      morale -= PARTNER.lowMoralePenalty;
+      notes.push(`−${PARTNER.lowMoralePenalty} Morale (strained)`);
+    }
+  }
+
   morale = clamp(morale, 0, 100);
   workload = clamp(workload, 0, 100);
 
   let settled: GameState = {
     ...s,
     flags,
+    relationship,
     meters: { ...s.meters, money, morale },
     workload,
     log: log(s, `End of term ${s.term}: ${notes.join(", ")}.`),
@@ -301,28 +323,30 @@ export function endTurn(s: GameState): GameState {
 
   const isFinalTerm = s.term >= s.maxTerms;
   const isBurnout = morale <= BURNOUT.morale || workload >= BURNOUT.workload;
+  const won = SCENARIOS[s.scenario].hasWon;
 
   // Final-term burnout is fatal even at the finish line (§6 loss condition).
   if (isFinalTerm) {
     if (isBurnout)
       return gameOver(settled, "loss", "BURNOUT at the finish line. The lab carries on without you.");
-    const won = POSTDOC_GAMBLE.hasWon(settled);
-    return won
-      ? gameOver(settled, "win", "You landed the job offer. Tenure track, here you come.")
-      : gameOver(settled, "loss", "No offer this cycle. The postdoc treadmill turns again.");
+    return won(settled)
+      ? gameOver(settled, "win", "You made it. The decision goes your way.")
+      : gameOver(settled, "loss", "Not this time. The door stays closed.");
   }
 
   // Resolve fuses (chaining) — may itself end the run (#9 retraction, #15 fuse).
   settled = resolveFuses(settled);
   if (settled.phase === "gameover") return { ...settled, score: score(settled) };
 
-  // Advance the term: refresh Time (half if pushing through burnout), decay
-  // Workload, reset Coffee, tick down the donor lock.
+  // Advance the term: refresh Time (half if pushing through burnout, +1 if
+  // married to the lab after a breakup), decay Workload, reset Coffee, tick
+  // down the donor lock.
   const halfTime = getFlag(settled, "halfTime") > 0;
+  const labTime = getFlag(settled, "marriedToLab") > 0 ? PARTNER.marriedToLabTime : 0;
   let advanced: GameState = {
     ...settled,
     term: s.term + 1,
-    meters: { ...settled.meters, time: halfTime ? Math.floor(WEEKS_PER_TERM / 2) : WEEKS_PER_TERM },
+    meters: { ...settled.meters, time: (halfTime ? Math.floor(WEEKS_PER_TERM / 2) : WEEKS_PER_TERM) + labTime },
     workload: clamp(settled.workload - e.workloadDecay, 0, 100),
     coffeeCups: 0,
   };
@@ -330,8 +354,21 @@ export function endTurn(s: GameState): GameState {
   if (getFlag(advanced, "donorLock") > 0)
     advanced = setFlag(advanced, "donorLock", getFlag(advanced, "donorLock") - 1);
 
-  // Engine-fired specials take the event slot first (spec §10, events #15/#16).
+  // Career arc role transition (spec §8): you become the PI mid-career, which
+  // flips the role-aware events to the "makes the call" branch.
+  if (advanced.mode === "career" && advanced.role === "junior" && advanced.term >= 5) {
+    advanced = {
+      ...advanced,
+      role: "pi",
+      students: [...advanced.students, { name: "Chloe Adeyemi", loyalty: 40 }],
+      log: log(advanced, "You defended, postdoc'd, and landed a lectureship. You're the PI now — the calls are yours."),
+    };
+  }
+
+  // Engine-fired specials take the event slot first (spec §10/§13, #15/#16/P-end).
   if (isBurnout) return enqueue(advanced, "burnout");
+  if (advanced.hasPartner && relationship <= PARTNER.breakupThreshold)
+    return enqueue(advanced, "p-end-drifting");
   if (s.coffeeCups >= EVENTS.caffeineCrashCups) return enqueue(advanced, "caffeine-crash");
 
   // Otherwise draw from the deck (conditional, weighted).

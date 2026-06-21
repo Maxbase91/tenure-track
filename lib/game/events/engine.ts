@@ -6,6 +6,7 @@ import { EVENTS } from "../constants";
 import type { ActiveFuse, FuseKind, GameState } from "../types";
 import { DECK, DECK_BY_ID } from "./deck";
 import {
+  adjustRel,
   adjustStudent,
   apply,
   endRun,
@@ -135,5 +136,13 @@ function fireFuse(s: GameState, kind: FuseKind): GameState {
       return s.meters.morale < 30
         ? endRun(s, "loss", "You left academia. The fuse you lit pushing through burnout caught up.")
         : pushLog(s, "You pushed through burnout — but clawed your Morale back in time. The fuse fizzled.");
+    case "promise-underload":
+      // P2: you promised to ease off — kept only if you under-loaded since.
+      return s.workload <= 40
+        ? adjustRel(pushLog(s, "You kept your promise and eased off. They noticed."), 8)
+        : adjustRel(apply(s, { morale: -6, log: "You broke your promise — another overloaded term. −Relationship." }), -15);
+    case "partner-plateau":
+      // P4 "not yet": the relationship quietly erodes.
+      return adjustRel(apply(s, { morale: -4, log: "The plateau after \"not yet\" set in. The relationship cooled." }), -12);
   }
 }

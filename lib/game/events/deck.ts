@@ -18,11 +18,14 @@ import {
   pushLog,
   setFlag,
 } from "./effects";
+import { PARTNER_EVENTS } from "./partner";
 import type { EventChoice, GameEvent } from "./types";
 
 const half = (n: number) => Math.ceil(n / 2);
 
-export const DECK: GameEvent[] = [
+// The 16 core career/life events (spec §7). Partner + solo events are appended
+// below so DECK / DECK_BY_ID cover the whole pool.
+const CORE_DECK: GameEvent[] = [
   // ---------------------------------------------------------------- #1
   {
     id: "reviewer-2",
@@ -401,6 +404,8 @@ export const DECK: GameEvent[] = [
     ],
   },
 ];
+
+export const DECK: GameEvent[] = [...CORE_DECK, ...PARTNER_EVENTS];
 
 export const DECK_BY_ID: Record<string, GameEvent> = Object.fromEntries(
   DECK.map((e) => [e.id, e]),
