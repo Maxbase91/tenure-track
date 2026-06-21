@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { FIELDS, randomField, type FieldId } from "@/lib/game/fields";
 import { generateOffers, randomPersonName, type Offer } from "@/lib/game/offers";
 import { SCENARIOS, type SetupConfig } from "@/lib/game/scenarios";
 import type { ScenarioId } from "@/lib/game/types";
 import { PoolBrowser } from "./PoolBrowser";
+import styles from "./SetupFlow.module.css";
+import tok from "./tokens.module.css";
 
 // The setup flow (spec §3): one to three screens, every step skippable with
 // Randomise. Career: partner → field → PhD offer draft → name. Quick:
@@ -13,8 +16,17 @@ import { PoolBrowser } from "./PoolBrowser";
 
 const QUICK_SCENARIOS: ScenarioId[] = ["phd-crunch", "postdoc-gamble", "new-pi", "tenure-sprint"];
 
-const card: React.CSSProperties = { padding: "10px 12px", fontSize: 15, textAlign: "left", cursor: "pointer", border: "1px solid #ccc", background: "#fff" };
-const selected: React.CSSProperties = { ...card, border: "2px solid #333", background: "#f0f0f0" };
+function Stars({ count }: { count: number }) {
+  return (
+    <span className={styles.offerStars}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} style={{ color: i < count ? "var(--hl)" : "var(--text3)" }}>
+          {i < count ? "★" : "☆"}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export function SetupFlow({ onStart, onOpen }: { onStart: (c: SetupConfig) => void; onOpen: (id: string) => void }) {
   const [browsing, setBrowsing] = useState(false);
@@ -53,116 +65,252 @@ export function SetupFlow({ onStart, onOpen }: { onStart: (c: SetupConfig) => vo
       offer: isCareer ? offer ?? offers[0] : null,
     });
 
-  const Heading = ({ children }: { children: React.ReactNode }) => (
-    <h2 style={{ marginBottom: 8 }}>{children}</h2>
-  );
+  const stepNum = String(step + 1).padStart(2, "0");
+  const totalNum = String(steps.length).padStart(2, "0");
+  const progressPct = ((step + 1) / steps.length) * 100;
+
   const Nav = ({ canNext = true, last = false }: { canNext?: boolean; last?: boolean }) => (
-    <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
-      {step > 0 && <button onClick={back} style={{ padding: "8px 12px" }}>← Back</button>}
-      <button onClick={last ? finish : next} disabled={!canNext} style={{ padding: "8px 14px", fontWeight: "bold", cursor: canNext ? "pointer" : "not-allowed" }}>
+    <div className={styles.nav}>
+      {step > 0 ? (
+        <motion.button className={tok.btnGhost} onClick={back} whileTap={{ scale: 0.97 }}>
+          ← Back
+        </motion.button>
+      ) : (
+        <div className={styles.navSpacer} />
+      )}
+      <motion.button
+        className={tok.btnPrimary}
+        onClick={last ? finish : next}
+        disabled={!canNext}
+        whileTap={{ scale: 0.97 }}
+      >
         {last ? "Start ▶" : "Next →"}
-      </button>
+      </motion.button>
     </div>
   );
 
   if (browsing) return <PoolBrowser onOpen={onOpen} onBack={() => setBrowsing(false)} />;
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 4 }}>Tenure Track</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>New game — {step + 1} / {steps.length}</p>
-      {step === 0 && (
-        <button onClick={() => setBrowsing(true)} style={{ padding: "6px 10px", marginBottom: 12 }}>
-          Browse the communal pool →
-        </button>
-      )}
+    <main className={styles.root}>
+      {/* Progress indicator */}
+      <div className={styles.progress}>
+        <span className={styles.progressCounter}>
+          {stepNum} / {totalNum}
+        </span>
+        <div className={styles.progressTrack}>
+          <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
+        </div>
+      </div>
 
+      {/* Scenario step */}
       {key === "scenario" && (
         <section>
-          <Heading>Choose your game</Heading>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button style={scenario === "career" ? selected : card} onClick={() => setScenario("career")}>
-              <strong>Career</strong> — {SCENARIOS.career.blurb}
-            </button>
-            <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase", marginTop: 8 }}>quick mode — pick an entry point</div>
+          <p className={styles.stepLabel}>Choose your game</p>
+          <h2 className={styles.stepHeading}>Pick a scenario</h2>
+
+          <div className={styles.scenarioList}>
+            {/* Career mode */}
+            <motion.button
+              className={`${styles.scenarioCard} ${scenario === "career" ? styles.scenarioCardActive : ""}`}
+              onClick={() => setScenario("career")}
+              whileTap={{ scale: 0.97 }}
+            >
+              <span className={styles.scenarioName}>Career</span>
+              <span className={styles.scenarioBlurb}>{SCENARIOS.career.blurb}</span>
+            </motion.button>
+
+            <p className={styles.scenarioDivider}>Quick mode — pick an entry point</p>
+
             {QUICK_SCENARIOS.map((id) => (
-              <button key={id} style={scenario === id ? selected : card} onClick={() => setScenario(id)}>
-                <strong>{SCENARIOS[id].label}</strong> — {SCENARIOS[id].blurb}
-              </button>
+              <motion.button
+                key={id}
+                className={`${styles.scenarioCard} ${scenario === id ? styles.scenarioCardActive : ""}`}
+                onClick={() => setScenario(id)}
+                whileTap={{ scale: 0.97 }}
+              >
+                <span className={styles.scenarioName}>{SCENARIOS[id].label}</span>
+                <span className={styles.scenarioBlurb}>{SCENARIOS[id].blurb}</span>
+              </motion.button>
             ))}
           </div>
+
+          <button className={styles.poolLink} onClick={() => setBrowsing(true)}>
+            Browse the communal pool →
+          </button>
+
           <Nav />
         </section>
       )}
 
+      {/* Partner step */}
       {key === "partner" && (
         <section>
-          <Heading>Play with a partner?</Heading>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button style={hasPartner ? selected : card} onClick={() => setHasPartner(true)}>Yes</button>
-            <button style={!hasPartner ? selected : card} onClick={() => setHasPartner(false)}>No — solo</button>
+          <p className={styles.stepLabel}>Collaboration</p>
+          <h2 className={styles.stepHeading}>Play with a partner?</h2>
+
+          <div className={styles.partnerRow}>
+            <motion.button
+              className={`${styles.partnerCard} ${!hasPartner ? styles.partnerCardActive : ""}`}
+              onClick={() => setHasPartner(false)}
+              whileTap={{ scale: 0.97 }}
+            >
+              <span className={styles.partnerCardLabel}>Solo run</span>
+              <span className={styles.partnerCardSub}>Just you and the institution.</span>
+            </motion.button>
+            <motion.button
+              className={`${styles.partnerCard} ${hasPartner ? styles.partnerCardActive : ""}`}
+              onClick={() => setHasPartner(true)}
+              whileTap={{ scale: 0.97 }}
+            >
+              <span className={styles.partnerCardLabel}>Partner run</span>
+              <span className={styles.partnerCardSub}>A collaborator shares the load.</span>
+            </motion.button>
           </div>
-          {hasPartner && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ display: "block", marginBottom: 4 }}>Partner name</label>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="Ellie" style={{ padding: 8, flex: 1 }} />
-                <button onClick={() => setPartnerName(randomPersonName().split(" ")[0])} style={{ padding: "8px 12px" }}>Randomise</button>
-              </div>
-              <label style={{ display: "block", margin: "12px 0 4px" }}>Their field</label>
-              <select value={partnerField} onChange={(e) => setPartnerField(e.target.value as FieldId)} style={{ padding: 8 }}>
-                {FIELDS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-              </select>
-            </div>
-          )}
+
+          <AnimatePresence>
+            {hasPartner && (
+              <motion.div
+                className={styles.partnerDetails}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22 }}
+              >
+                <div className={styles.partnerForm}>
+                  <div>
+                    <label className={styles.fieldLabel}>Partner name</label>
+                    <div className={styles.inputRow}>
+                      <input
+                        className={styles.textInput}
+                        value={partnerName}
+                        onChange={(e) => setPartnerName(e.target.value)}
+                        placeholder="Ellie"
+                      />
+                      <button
+                        className={styles.btnRandomise}
+                        onClick={() => setPartnerName(randomPersonName().split(" ")[0])}
+                      >
+                        Randomise
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={styles.fieldLabel}>Their field</label>
+                    <select
+                      className={styles.select}
+                      value={partnerField}
+                      onChange={(e) => setPartnerField(e.target.value as FieldId)}
+                    >
+                      {FIELDS.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <Nav />
         </section>
       )}
 
+      {/* Field step */}
       {key === "field" && (
         <section>
-          <Heading>Pick a field {!isCareer && <span style={{ fontWeight: "normal", color: "#888" }}>(optional)</span>}</Heading>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p className={styles.stepLabel}>Research field</p>
+          <h2 className={styles.stepHeading}>
+            Pick a field{" "}
+            {!isCareer && (
+              <span style={{ fontFamily: "Hanken Grotesk, sans-serif", fontWeight: 400, fontSize: 16, color: "var(--text2)" }}>
+                (optional)
+              </span>
+            )}
+          </h2>
+
+          <div className={styles.fieldList}>
             {FIELDS.map((f) => (
-              <button key={f.id} style={field === f.id ? selected : card} onClick={() => setField(f.id)}>
-                <strong>{f.label}</strong> <span style={{ color: "#888" }}>— {f.flavour}</span>
-              </button>
+              <motion.button
+                key={f.id}
+                className={`${styles.fieldCard} ${field === f.id ? styles.fieldCardActive : ""}`}
+                onClick={() => setField(f.id)}
+                whileTap={{ scale: 0.97 }}
+              >
+                <span className={styles.fieldName}>{f.label}</span>
+                <span className={styles.fieldFlavour}>{f.flavour}</span>
+              </motion.button>
             ))}
           </div>
-          <div style={{ marginTop: 8 }}>
-            <button onClick={() => setField(randomField())} style={{ padding: "6px 10px" }}>Randomise</button>
+
+          <div className={styles.fieldRandomRow}>
+            <button className={styles.poolLink} onClick={() => setField(randomField())}>
+              Randomise field
+            </button>
           </div>
+
           <Nav last={!isCareer} />
         </section>
       )}
 
+      {/* Offers step (career only) */}
       {key === "offers" && (
         <section>
-          <Heading>The PhD offer draft</Heading>
-          <p style={{ color: "#666", marginTop: 0 }}>Choose one. This frames the run.</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {offers.map((o) => (
-              <button key={o.id} style={offer?.id === o.id ? selected : card} onClick={() => setOffer(o)}>
-                <div><strong>{"★".repeat(o.stars)}{"☆".repeat(5 - o.stars)} {o.university}</strong>{o.hotTopic ? " 🔥 hot topic" : ""}</div>
-                <div style={{ color: "#555" }}>{o.supervisor} · {o.profile}</div>
-                <div style={{ fontSize: 13, color: "#777" }}>
-                  Inst-Rep {o.instRep} · Mentoring {o.mentoring} · Team {o.team} · Funding {o.funding}
+          <p className={styles.stepLabel}>PhD offer draft</p>
+          <h2 className={styles.stepHeading}>Choose one.</h2>
+          <p className={styles.stepSub}>This frames the entire run.</p>
+
+          <div className={styles.offerList}>
+            {offers.map((o, idx) => (
+              <motion.button
+                key={o.id}
+                className={`${styles.offerCard} ${idx % 2 === 0 ? styles.offerCardOdd : styles.offerCardEven} ${offer?.id === o.id ? styles.offerCardActive : ""}`}
+                onClick={() => setOffer(o)}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className={styles.offerTop}>
+                  <span className={styles.offerUni}>{o.university}</span>
+                  {o.hotTopic && <span className={styles.offerHot}>[hot]</span>}
                 </div>
-                <div style={{ fontSize: 13, fontStyle: "italic", color: "#555" }}>{o.runFeel}</div>
-              </button>
+                <Stars count={o.stars} />
+                <span className={styles.offerSupervisor}>
+                  {o.supervisor} · {o.profile}
+                </span>
+                <span className={styles.offerStats}>
+                  Inst-Rep {o.instRep} · Mentoring {o.mentoring} · Team {o.team} · Funding {o.funding}
+                </span>
+                <span className={styles.offerFeel}>{o.runFeel}</span>
+              </motion.button>
             ))}
           </div>
+
           <Nav canNext={!!offer} />
         </section>
       )}
 
+      {/* Name step */}
       {key === "name" && (
         <section>
-          <Heading>Your name</Heading>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dr. Anonymous" style={{ padding: 8, flex: 1 }} />
-            <button onClick={() => setName(randomPersonName())} style={{ padding: "8px 12px" }}>Randomise</button>
+          <p className={styles.stepLabel}>Your identity</p>
+          <h2 className={styles.stepHeading}>Your name</h2>
+
+          <div className={styles.nameCard}>
+            <label className={styles.fieldLabel}>Scientist name</label>
+            <div className={styles.inputRow}>
+              <input
+                className={styles.textInput}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Dr. Anonymous"
+              />
+              <button className={styles.btnRandomise} onClick={() => setName(randomPersonName())}>
+                Randomise
+              </button>
+            </div>
           </div>
+
           <Nav last={isCareer} />
         </section>
       )}

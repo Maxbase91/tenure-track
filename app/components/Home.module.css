@@ -1,0 +1,150 @@
+/* Home screen — the first thing a player sees.
+ * Tone: opening a serious scientific journal that happens to be about you. */
+
+/* ---- layout ---- */
+
+.root {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 48px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+
+/* ---- masthead ---- */
+
+.masthead {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Kicker: "Vol. I · Your Career Issue" */
+.kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text3);
+  margin: 0 0 10px;
+}
+
+/* Journal masthead title */
+.title {
+  font-family: "Fraunces", serif;
+  font-size: clamp(40px, 11vw, 58px);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* Horizontal rule — the journal header separator */
+.rule {
+  border: none;
+  border-top: 2px solid var(--text);
+  margin: 12px 0 10px;
+  opacity: 0.85;
+}
+
+/* Tagline — treated as a journal subtitle, not a marketing line */
+.tagline {
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text2);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ---- mode cards ---- */
+
+.modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/*
+ * Each mode card is a parchment sheet — mirrors the .doc card from GameBoard
+ * (same border color, same radius family) but without the torn-paper effect.
+ * The arrow anchors to the bottom-right to signal interactivity without
+ * leaning on generic browser affordances.
+ */
+.modeCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  padding: 18px 20px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px -4px rgba(0, 0, 0, 0.1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.1s;
+}
+.modeCard:hover {
+  border-color: var(--text);
+  box-shadow: 0 6px 20px -6px rgba(0, 0, 0, 0.18);
+  transform: translateY(-1px);
+}
+.modeCard:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px -4px rgba(0, 0, 0, 0.14);
+}
+
+/* Mode name — Fraunces, reads like a section heading in the journal */
+.modeLabel {
+  font-family: "Fraunces", serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+}
+
+/* Mode description — IBM Plex Mono, reads like a methods blurb */
+.modeDesc {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text2);
+  line-height: 1.5;
+  padding-right: 28px; /* make room for arrow */
+}
+
+/* Arrow — anchored bottom-right, subtle until hover */
+.modeArrow {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text3);
+  transition: color 0.12s, transform 0.12s;
+  line-height: 1;
+}
+.modeCard:hover .modeArrow {
+  color: var(--text);
+  transform: translateX(3px);
+}
+
+/* ---- footer ---- */
+
+.footer {
+  margin-top: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding-bottom: 8px;
+}

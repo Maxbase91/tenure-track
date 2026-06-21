@@ -1,0 +1,129 @@
+/*
+ * Tenure Track — Shared Utility Classes
+ *
+ * Tokens live in globals.css :root — available everywhere without importing.
+ * Import this module when you need the utility classes (.card, .btn, etc.).
+ * Use via styles.card, styles.btn, etc.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Utility component classes                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * .card — parchment card for light-surface screens
+ * Mirrors the .doc visual language without the torn-paper effect.
+ */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px -6px rgba(0, 0, 0, 0.12);
+}
+
+/*
+ * .btn — base interactive button on dark or neutral backgrounds
+ * Ink background, parchment text, Hanken Grotesk bold.
+ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, filter 0.12s;
+  text-align: left;
+}
+.btn:hover:not(:disabled) {
+  background: var(--ink2);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/*
+ * .btnPrimary — CTA button
+ * Yellow highlight background, ink text. Use for "Start", "Next", "Confirm".
+ */
+.btnPrimary {
+  composes: btn;
+  background: var(--hl);
+  color: var(--ink);
+}
+.btnPrimary:hover:not(:disabled) {
+  background: var(--hl);
+  filter: brightness(1.06);
+}
+
+/*
+ * .btnGhost — ghost / back button
+ * Transparent background, text2 color. Use for "← Back", "Cancel".
+ */
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text2);
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.btnGhost:hover {
+  color: var(--text);
+}
+
+/*
+ * .label — overline / kicker label
+ * IBM Plex Mono, uppercase, tight tracking. Use for section labels and metadata.
+ */
+.label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  line-height: 1;
+}
+
+/*
+ * .heading — game-branded heading
+ * Fraunces serif, weight 600. Use for titles and event headings.
+ */
+.heading {
+  font-family: "Fraunces", serif;
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.1;
+  margin: 0;
+}
+
+/*
+ * .mono — data / cost display
+ * IBM Plex Mono for numbers, hints, and inline data values.
+ */
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text2);
+  line-height: 1.5;
+}

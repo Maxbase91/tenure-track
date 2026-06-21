@@ -6,6 +6,30 @@
 
 :root {
   color-scheme: light;
+
+  /* dark surface palette */
+  --ink:     #1b2a32;
+  --ink2:    #243a44;
+  --ink3:    #2e4953;
+  --paper:   #f1ead9;
+  --hl:      #f4d43c;
+  --reagent: #54b089;
+  --alarm:   #d85850;
+  --muted:   #9fb2b9;
+  --line:    rgba(255, 255, 255, 0.1);
+
+  /* light surface palette */
+  --surface: #fefcf7;
+  --border:  #d6cbb0;
+  --text:    #22312f;
+  --text2:   #5a6b65;
+  --text3:   #9a8f74;
+
+  /* spacing radii */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
 }
 @keyframes tt-spin { to { transform: rotate(360deg); } }
 @keyframes tt-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }

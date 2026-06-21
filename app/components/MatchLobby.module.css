@@ -1,0 +1,304 @@
+.root {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 100dvh;
+  box-sizing: border-box;
+}
+
+/* ---- header ---- */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.backRow {
+  margin-bottom: 12px;
+}
+
+.kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text3);
+  margin: 0 0 6px;
+}
+
+.title {
+  font-family: "Fraunces", serif;
+  font-size: clamp(28px, 8vw, 40px);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+/* ---- section labels ---- */
+
+.sectionLabel {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text3);
+  margin: 0 0 8px;
+}
+
+/* ---- scenario section ---- */
+
+.scenarioScroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.scenarioScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.scenarioTile {
+  flex: none;
+  padding: 10px 14px 12px;
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-bottom: 3px solid transparent;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.12s, border-bottom-color 0.12s;
+  white-space: nowrap;
+}
+
+.scenarioTile:hover {
+  background: var(--ink3);
+}
+
+.scenarioTileActive {
+  border-bottom-color: var(--hl);
+  background: var(--ink3);
+}
+
+.scenarioTileLabel {
+  font-family: "Fraunces", serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--paper);
+  display: block;
+}
+
+.scenarioTileActive .scenarioTileLabel {
+  color: var(--hl);
+}
+
+/* ---- field selector ---- */
+
+.fieldCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.fieldSelect {
+  flex: 1;
+  padding: 8px 10px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6b65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  padding-right: 24px;
+}
+
+.fieldDivider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  flex: none;
+}
+
+.fieldRandomBtn {
+  flex: none;
+  padding: 6px 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.12s;
+  white-space: nowrap;
+}
+
+.fieldRandomBtn:hover {
+  color: var(--text);
+}
+
+/* ---- players section ---- */
+
+.playersList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.playerNameInput {
+  flex: 1;
+  min-width: 100px;
+  padding: 7px 10px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.playerNameInput:focus {
+  border-color: var(--ink);
+}
+
+.kindPills {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.kindPill {
+  padding: 5px 11px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  line-height: 1;
+}
+
+.kindPill:hover {
+  color: var(--text);
+}
+
+.kindPillActive {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px -1px rgba(0, 0, 0, 0.15);
+}
+
+.aiSelect {
+  flex: 1;
+  min-width: 100px;
+  padding: 7px 28px 7px 10px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235a6b65' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.12s;
+}
+
+.aiSelect:focus {
+  border-color: var(--ink);
+}
+
+.removeBtn {
+  padding: 5px 10px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--alarm);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.removeBtn:hover {
+  color: var(--alarm);
+  opacity: 0.75;
+}
+
+/* ---- add player ---- */
+
+.addPlayerCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 14px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  width: 100%;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+.addPlayerCard:hover {
+  border-color: var(--text2);
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text);
+}
+
+/* ---- start button ---- */
+
+.startRow {
+  padding-top: 4px;
+}
+
+.startBtn {
+  width: 100%;
+}

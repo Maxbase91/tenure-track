@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { AI_PROFILES } from "@/lib/game/ai";
 import { FIELDS, randomField, type FieldId } from "@/lib/game/fields";
 import type { MatchConfig, PlayerConfig } from "@/lib/game/match";
 import { randomPersonName } from "@/lib/game/offers";
 import { SCENARIOS } from "@/lib/game/scenarios";
 import type { ScenarioId } from "@/lib/game/types";
+import styles from "./MatchLobby.module.css";
+import tok from "./tokens.module.css";
 
 const QUICK: ScenarioId[] = ["phd-crunch", "postdoc-gamble", "new-pi", "tenure-sprint"];
 
@@ -24,56 +27,133 @@ export function MatchLobby({ onStart, onExit }: { onStart: (c: MatchConfig) => v
     setPlayers((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 4 }}>Tenure Track — Match</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>AI opponents + pass-the-phone. Same scenario, highest score wins.</p>
-      <button onClick={onExit} style={{ padding: "4px 8px", fontSize: 12, color: "#888", marginBottom: 12 }}>← main menu</button>
+    <main className={styles.root}>
+      {/* Header */}
+      <header className={styles.header}>
+        <div className={styles.backRow}>
+          <motion.button className={tok.btnGhost} onClick={onExit} whileTap={{ scale: 0.97 }}>
+            ← Main menu
+          </motion.button>
+        </div>
+        <p className={styles.kicker}>Match setup</p>
+        <h1 className={styles.title}>Tenure Track</h1>
+      </header>
 
-      <h2 style={{ marginBottom: 8 }}>Scenario</h2>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {QUICK.map((id) => (
-          <button key={id} onClick={() => setScenario(id)} style={tile(scenario === id)}>{SCENARIOS[id].label}</button>
-        ))}
-      </div>
+      {/* Scenario section */}
+      <section>
+        <p className={styles.sectionLabel}>Scenario</p>
+        <div className={styles.scenarioScroll}>
+          {QUICK.map((id) => (
+            <motion.button
+              key={id}
+              className={`${styles.scenarioTile} ${scenario === id ? styles.scenarioTileActive : ""}`}
+              onClick={() => setScenario(id)}
+              whileTap={{ scale: 0.97 }}
+            >
+              <span className={styles.scenarioTileLabel}>{SCENARIOS[id].label}</span>
+            </motion.button>
+          ))}
+        </div>
+      </section>
 
-      <h2 style={{ margin: "16px 0 8px" }}>Field</h2>
-      <select value={field} onChange={(e) => setField(e.target.value as FieldId)} style={{ padding: 8 }}>
-        {FIELDS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-      </select>{" "}
-      <button onClick={() => setField(randomField())} style={{ padding: "6px 10px" }}>Randomise</button>
+      {/* Field selector */}
+      <section>
+        <p className={styles.sectionLabel}>Field</p>
+        <div className={styles.fieldCard}>
+          <select
+            className={styles.fieldSelect}
+            value={field}
+            onChange={(e) => setField(e.target.value as FieldId)}
+          >
+            {FIELDS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <div className={styles.fieldDivider} />
+          <button className={styles.fieldRandomBtn} onClick={() => setField(randomField())}>
+            Random
+          </button>
+        </div>
+      </section>
 
-      <h2 style={{ margin: "16px 0 8px" }}>Players ({players.length})</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {players.map((p, i) => (
-          <div key={i} style={{ border: "1px solid #ccc", padding: 8, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <input value={p.name} onChange={(e) => setP(i, { name: e.target.value })} style={{ padding: 6, width: 140 }} />
-            <button onClick={() => setP(i, { name: randomPersonName() })} style={{ padding: "4px 8px", fontSize: 12 }}>🎲</button>
-            <button onClick={() => setP(i, { kind: "human", profileId: undefined })} style={tile(p.kind === "human")}>Human</button>
-            <button onClick={() => setP(i, { kind: "ai", profileId: p.profileId ?? "careerist" })} style={tile(p.kind === "ai")}>AI</button>
-            {p.kind === "ai" && (
-              <select value={p.profileId ?? "careerist"} onChange={(e) => setP(i, { profileId: e.target.value })} style={{ padding: 6 }}>
-                {AI_PROFILES.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
-              </select>
-            )}
-            {players.length > 2 && <button onClick={() => setPlayers((ps) => ps.filter((_, j) => j !== i))} style={{ padding: "4px 8px", fontSize: 12, color: "#b00" }}>remove</button>}
-          </div>
-        ))}
-      </div>
-      {players.length < 4 && (
-        <button onClick={() => setPlayers((ps) => [...ps, { name: `AI ${ps.length + 1}`, kind: "ai", profileId: "plodder" }])} style={{ padding: "6px 10px", marginTop: 8 }}>
-          + Add player
-        </button>
-      )}
+      {/* Players section */}
+      <section>
+        <p className={styles.sectionLabel}>Players ({players.length})</p>
+        <div className={styles.playersList}>
+          {players.map((p, i) => (
+            <motion.div key={i} className={styles.playerRow} whileTap={{ scale: 0.99 }}>
+              <input
+                className={styles.playerNameInput}
+                value={p.name}
+                onChange={(e) => setP(i, { name: e.target.value })}
+              />
 
-      <div style={{ marginTop: 20 }}>
-        <button onClick={() => onStart({ scenario, field, players })} style={{ padding: "10px 18px", fontSize: 16, fontWeight: "bold", cursor: "pointer" }}>
+              <div className={styles.kindPills}>
+                <button
+                  className={`${styles.kindPill} ${p.kind === "human" ? styles.kindPillActive : ""}`}
+                  onClick={() => setP(i, { kind: "human", profileId: undefined })}
+                >
+                  Human
+                </button>
+                <button
+                  className={`${styles.kindPill} ${p.kind === "ai" ? styles.kindPillActive : ""}`}
+                  onClick={() => setP(i, { kind: "ai", profileId: p.profileId ?? "careerist" })}
+                >
+                  AI
+                </button>
+              </div>
+
+              {p.kind === "ai" && (
+                <select
+                  className={styles.aiSelect}
+                  value={p.profileId ?? "careerist"}
+                  onChange={(e) => setP(i, { profileId: e.target.value })}
+                >
+                  {AI_PROFILES.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {players.length > 2 && (
+                <button
+                  className={styles.removeBtn}
+                  onClick={() => setPlayers((ps) => ps.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              )}
+            </motion.div>
+          ))}
+
+          {players.length < 4 && (
+            <motion.button
+              className={styles.addPlayerCard}
+              onClick={() =>
+                setPlayers((ps) => [...ps, { name: `AI ${ps.length + 1}`, kind: "ai", profileId: "plodder" }])
+              }
+              whileTap={{ scale: 0.98 }}
+            >
+              + Add player
+            </motion.button>
+          )}
+        </div>
+      </section>
+
+      {/* Start button */}
+      <div className={styles.startRow}>
+        <motion.button
+          className={`${tok.btnPrimary} ${styles.startBtn}`}
+          onClick={() => onStart({ scenario, field, players })}
+          whileTap={{ scale: 0.97 }}
+        >
           Start match ▶
-        </button>
+        </motion.button>
       </div>
     </main>
   );
-}
-
-function tile(active: boolean): React.CSSProperties {
-  return { padding: "6px 12px", border: active ? "2px solid #333" : "1px solid #ccc", background: active ? "#f0f0f0" : "#fff", cursor: "pointer" };
 }

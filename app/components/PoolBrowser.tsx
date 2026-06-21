@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { listCareers, type CareerRow } from "@/lib/pool";
+import styles from "./PoolBrowser.module.css";
+import tok from "./tokens.module.css";
 
 // Browse the communal pool and open any run to continue it (spec §14).
 export function PoolBrowser({ onOpen, onBack }: { onOpen: (id: string) => void; onBack: () => void }) {
@@ -17,26 +20,44 @@ export function PoolBrowser({ onOpen, onBack }: { onOpen: (id: string) => void; 
   }, []);
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 4 }}>Tenure Track</h1>
-      <p style={{ color: "#666", marginTop: 0 }}>The communal pool — open and continue anyone's run.</p>
-      <button onClick={onBack} style={{ padding: "6px 10px", marginBottom: 12 }}>← New game</button>
+    <main className={styles.root}>
+      <header>
+        <div className={styles.backRow}>
+          <motion.button className={tok.btnGhost} onClick={onBack} whileTap={{ scale: 0.97 }}>
+            ← New game
+          </motion.button>
+        </div>
+        <p className={styles.kicker}>Communal pool</p>
+        <h1 className={styles.title}>Tenure Track</h1>
+        <p className={styles.subhead}>Open and continue anyone's run.</p>
+      </header>
 
-      {loading && <p>Loading…</p>}
-      {error && <p style={{ color: "#b00" }}>{error}</p>}
-      {!loading && !error && rows.length === 0 && <p style={{ color: "#888" }}>The pool is empty. Start a run and save it.</p>}
+      {loading && <p className={styles.loading}>Loading…</p>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {error && <p className={styles.errorMsg}>{error}</p>}
+
+      {!loading && !error && rows.length === 0 && (
+        <div className={styles.emptyCard}>
+          <p className={styles.emptyText}>The pool is empty. Start a run and publish it.</p>
+        </div>
+      )}
+
+      <div className={styles.list}>
         {rows.map((r) => (
-          <button key={r.id} onClick={() => onOpen(r.id)} style={{ padding: "10px 12px", textAlign: "left", border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>
-            <div><strong>{r.title}</strong></div>
-            <div style={{ fontSize: 13, color: "#555" }}>
+          <motion.button
+            key={r.id}
+            className={styles.runCard}
+            onClick={() => onOpen(r.id)}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span className={styles.runTitle}>{r.title}</span>
+            <span className={styles.runData}>
               {r.mode} · {r.scenario} · {r.stage} · term {r.term} · score {r.score}
-            </div>
-            <div style={{ fontSize: 12, color: "#999" }}>
+            </span>
+            <span className={styles.runMeta}>
               last played by {r.last_player ?? "—"} · v{r.version} · {new Date(r.updated_at).toLocaleString()}
-            </div>
-          </button>
+            </span>
+          </motion.button>
         ))}
       </div>
     </main>
