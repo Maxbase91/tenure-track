@@ -49,19 +49,6 @@
   cursor: pointer;
 }
 
-/* --- scene (display only, full width hero) --- */
-.scene {
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.5);
-}
-.scene :global(svg) {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 /* --- meters --- */
 .meters {
   display: grid;

@@ -6,7 +6,6 @@ import { activeEvent } from "@/lib/game/events/engine";
 import { canDo, eventPending } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
 import { cueForLog, isMuted, play, toggleMute } from "@/lib/sound";
-import { LabScene } from "./LabScene";
 import styles from "./GameBoard.module.css";
 
 // The four real actions — how you spend a term. Coffee is NOT here: it's a
@@ -105,13 +104,6 @@ export function GameBoard({
     }
   }, [s.log]);
 
-  const prevPubs = useRef(s.publications);
-  const [pulse, setPulse] = useState(0);
-  useEffect(() => {
-    if (s.publications > prevPubs.current && !reduced) setPulse((p) => p + 1);
-    prevPubs.current = s.publications;
-  }, [s.publications, reduced]);
-
   const coffee = canDo(s, "coffee");
 
   return (
@@ -123,16 +115,6 @@ export function GameBoard({
         <button className={styles.mute} onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"}>
           {muted ? "Sound off" : "Sound on"}
         </button>
-      </div>
-
-      {/* the lab — display only (no per-object clicking) */}
-      <div className={styles.scene}>
-        <LabScene s={s} />
-        {pulse > 0 && (
-          <motion.div key={pulse} initial={{ scale: 0.3, opacity: 0.85 }} animate={{ scale: 1.6, opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ position: "absolute", inset: "28%", border: "3px solid #f1c40f", borderRadius: "50%", pointerEvents: "none" }} />
-        )}
       </div>
 
       {/* vital signs */}
