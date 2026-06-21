@@ -1,10 +1,12 @@
+/* @import must precede all other rules (CSS spec) or browsers drop it. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Hanken+Grotesk:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 /* Animations for the isometric lab scene (M6, spec §16). SVG-driven; PixiJS is
    the "later" path per §15. */
 
 :root {
   color-scheme: light;
 }
-
 @keyframes tt-spin { to { transform: rotate(360deg); } }
 @keyframes tt-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes tt-steam {

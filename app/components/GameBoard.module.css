@@ -1,0 +1,309 @@
+/* Redesigned board styling. Tokens scoped to .board so nothing leaks globally.
+   Fonts (Fraunces / Hanken Grotesk / IBM Plex Mono) are loaded once in layout. */
+
+.board {
+  --ink: #1b2a32;
+  --ink2: #243a44;
+  --ink3: #2e4953;
+  --paper: #f1ead9;
+  --hl: #f4d43c;
+  --reagent: #54b089;
+  --alarm: #d85850;
+  --muted: #9fb2b9;
+  --line: rgba(255, 255, 255, 0.1);
+
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 4px 0 28px;
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  color: var(--paper);
+}
+
+/* --- scene --- */
+.scene {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 14px 34px -16px rgba(0, 0, 0, 0.5);
+}
+.sceneTag {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: #4a5a52;
+  background: rgba(241, 234, 217, 0.82);
+  padding: 4px 9px;
+  border-radius: 8px;
+}
+.mute {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  border: none;
+  background: rgba(27, 42, 50, 0.6);
+  color: var(--paper);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+/* --- meters --- */
+.meters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 7px;
+  margin-top: 10px;
+}
+.meter {
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 9px;
+}
+.meterLabel {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.meterValue {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+}
+.gauge {
+  display: block;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: 6px;
+  overflow: hidden;
+}
+.gauge i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* --- under the hood --- */
+.hood {
+  margin-top: 10px;
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.hood summary {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  cursor: pointer;
+}
+.hoodGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hoodGrid b {
+  color: var(--paper);
+  font-weight: 700;
+}
+.wide {
+  grid-column: 1 / -1;
+}
+
+/* --- event document --- */
+.docWrap {
+  margin-top: 14px;
+}
+.doc {
+  position: relative;
+  background: var(--paper);
+  color: #22312f;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid #d6cbb0;
+  box-shadow: 0 20px 46px -18px rgba(0, 0, 0, 0.55);
+  transform: rotate(-0.5deg);
+  animation: drop 0.45s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.doc::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: -7px;
+  height: 7px;
+  background: repeating-linear-gradient(90deg, var(--paper) 0 7px, transparent 7px 14px);
+  filter: drop-shadow(0 -1px 0 #d6cbb0);
+}
+@keyframes drop {
+  from { opacity: 0; transform: translateY(34px) rotate(2deg); }
+  to { opacity: 1; transform: translateY(0) rotate(-0.5deg); }
+}
+.kicker {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a8f74;
+}
+.docTitle {
+  font-family: "Fraunces", serif;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 3px 0 7px;
+  line-height: 1.05;
+}
+.docBody {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #3a463f;
+}
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 13px;
+}
+.choice {
+  text-align: left;
+  border: 1px solid #cdbf9f;
+  background: #faf6ea;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #22312f;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: 0.12s;
+}
+.choice:hover {
+  border-color: #22312f;
+  transform: translateX(2px);
+}
+.choiceCost {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: #8a7f64;
+  text-align: right;
+}
+
+/* --- action dock --- */
+.dock {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 16px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.dock::-webkit-scrollbar {
+  display: none;
+}
+.act {
+  flex: none;
+  min-width: 116px;
+  text-align: left;
+  background: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: 0.12s;
+}
+.act:hover:not(:disabled) {
+  border-color: var(--hl);
+  background: var(--ink3);
+}
+.act:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.coffee {
+  background: linear-gradient(135deg, #3a2c1a, #2a2114);
+  border-color: #6b4f2a;
+}
+.actLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+}
+.coffee .actLabel {
+  color: var(--hl);
+}
+.actHint {
+  display: block;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+/* --- end turn --- */
+.endTurn {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: var(--hl);
+  color: var(--ink);
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.endTurn:hover {
+  filter: brightness(1.05);
+}
+
+/* --- log --- */
+.log {
+  margin-top: 20px;
+}
+.logHead {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.log ul {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+}
+.log li {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 3px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .doc { animation: none; }
+  .gauge i { transition: none; }
+}

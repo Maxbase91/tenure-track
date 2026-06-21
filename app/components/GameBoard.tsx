@@ -6,19 +6,19 @@ import { canDo, eventPending } from "@/lib/game/machine";
 import type { ActionId, GameState } from "@/lib/game/types";
 import { cueForLog, isMuted, play, toggleMute } from "@/lib/sound";
 import { LabScene } from "./LabScene";
-import { Meter } from "./Meter";
+import styles from "./GameBoard.module.css";
 
-const ACTION_LABELS: { id: ActionId; label: string; hint: string }[] = [
-  { id: "experiment", label: "Run experiment", hint: "−3 wk, −£4,000 → +6 Knowledge" },
-  { id: "paper", label: "Write paper", hint: "−3 wk, −£3,000 APC, needs 10 Knowledge → 2d6 roll" },
-  { id: "grant", label: "Write grant", hint: "−5 wk, −£1,000 → 2d6 roll for £15,000" },
-  { id: "mentor", label: "Mentor student", hint: "−½ day → +2 Knowledge, +2 Morale, +loyalty" },
-  { id: "coffee", label: "Coffee", hint: "+2 wk, +15 Workload, −2 Morale" },
+const ACTIONS: { id: ActionId; label: string; hint: string }[] = [
+  { id: "experiment", label: "Experiment", hint: "−3 wk · −£4k → +6 Knowledge" },
+  { id: "paper", label: "Write paper", hint: "−3 wk · −£3k · needs 10 Know → 2d6" },
+  { id: "grant", label: "Write grant", hint: "−5 wk · −£1k → 2d6 for £15k" },
+  { id: "mentor", label: "Mentor", hint: "−½ day → +Know, +Morale, +loyalty" },
+  { id: "coffee", label: "☕ Coffee", hint: "+2 wk · +Workload · −Morale" },
 ];
 
-// The shared playable board: meters, the under-the-hood panel, the event modal,
-// the five actions, and End Turn. Presentational — all transitions come in via
-// callbacks, so it serves both solo (useGameStore) and match (useMatchStore).
+// Presentational board — every transition arrives via callbacks, so this serves
+// both solo (useGameStore) and match (useMatchStore). Same engine APIs and sound
+// cues as before; only the presentation changed.
 export function GameBoard({
   state: s,
   onAct,
@@ -34,8 +34,9 @@ export function GameBoard({
   const ev = activeEvent(s);
   const paused = eventPending(s);
   const over = s.phase === "gameover";
+  const career = s.mode === "career";
 
-  // Sound cues react to state changes (M6). Refs avoid replaying on remount.
+  // Sound cues (M6) — unchanged.
   const [muted, setMuted] = useState(false);
   const lastLog = useRef<string | undefined>(undefined);
   const lastEvent = useRef<string | undefined>(undefined);
@@ -55,82 +56,100 @@ export function GameBoard({
     }
   }, [s.log, s.eventQueue, s.outcome]);
 
-  return (
-    <>
-      <LabScene s={s} />
-      <div style={{ margin: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: "bold" }}>
-          Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
+  const meterCard = (label: string, value: string, pct: number | null, color: string) => (
+    <div className={styles.meter}>
+      <span className={styles.meterLabel}>{label}</span>
+      <span className={styles.meterValue}>{value}</span>
+      {pct !== null && (
+        <span className={styles.gauge}>
+          <i style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
         </span>
-        <button onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"} style={{ padding: "2px 8px", cursor: "pointer" }}>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={styles.board}>
+      {/* the isometric lab — your existing scene, now framed */}
+      <div className={styles.scene}>
+        <LabScene s={s} />
+        <div className={styles.sceneTag}>
+          Term {Math.min(s.term, s.maxTerms)} / {s.maxTerms} · {s.role === "pi" ? "PI" : "junior"}
+        </div>
+        <button className={styles.mute} onClick={() => setMuted(toggleMute())} title={muted ? "Unmute" : "Mute"}>
           {muted ? "🔇" : "🔊"}
         </button>
       </div>
 
-      <section aria-label="Meters">
-        <Meter label="Time" value={String(meters.time)} unit="weeks" />
-        <Meter label="Money" value={`£${meters.money.toLocaleString()}`} />
-        <Meter label="Morale" value={String(meters.morale)} unit="/ 100" />
-        <Meter label="Reputation" value={String(meters.reputation)} />
-      </section>
+      {/* the four meters as instruments */}
+      <div className={styles.meters}>
+        {meterCard("Time", `${meters.time} wk`, (meters.time / 11) * 100, "#F4D43C")}
+        {meterCard("Money", `£${(meters.money / 1000).toFixed(0)}k`, (meters.money / 30000) * 100, "#54B089")}
+        {meterCard("Morale", `${meters.morale}`, meters.morale, meters.morale < 30 ? "#D85850" : "#54B089")}
+        {meterCard("Rep", `h-${meters.reputation}`, (meters.reputation / 15) * 100, "#F1EAD9")}
+      </div>
 
-      <section aria-label="Under the hood" style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>
-          {s.mode === "career" ? "resources" : "under the hood (hidden in final build)"}
+      {/* under the hood */}
+      <details className={styles.hood} open={career}>
+        <summary>{career ? "resources" : "under the hood (hidden in final build)"}</summary>
+        <div className={styles.hoodGrid}>
+          <span>Workload <b>{s.workload}/100</b></span>
+          <span>Knowledge <b>{s.knowledge}</b></span>
+          <span>Publications <b>{s.publications}</b></span>
+          {s.hasPartner && <span>Relationship <b>{s.relationship}/100</b></span>}
+          <span className={styles.wide}>Students <b>{s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"}</b></span>
+          {s.fuses.length > 0 && <span className={styles.wide}>Live fuses <b>{s.fuses.map((f) => f.kind).join(", ")}</b></span>}
         </div>
-        <Meter label="Workload" value={String(s.workload)} unit="/ 100" muted />
-        <Meter label="Knowledge" value={String(s.knowledge)} muted />
-        <Meter label="Publications" value={String(s.publications)} muted />
-        {s.hasPartner && <Meter label="Relationship" value={String(s.relationship)} unit="/ 100" muted />}
-        <Meter label="Students" value={s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"} muted />
-        <Meter label="Live fuses" value={s.fuses.map((f) => f.kind).join(", ") || "—"} muted />
-      </section>
+      </details>
 
+      {/* event document */}
       {paused && ev && (
-        <section aria-label="Event" style={{ marginTop: 16, border: "2px solid #333", padding: 12, background: "#fafafa" }}>
-          <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>
-            event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}
+        <div className={styles.docWrap}>
+          <div className={styles.doc}>
+            <div className={styles.kicker}>event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}</div>
+            <h2 className={styles.docTitle}>{ev.title}</h2>
+            <p className={styles.docBody}>{ev.body}</p>
+            <div className={styles.choices}>
+              {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
+                <button key={c.id} className={styles.choice} onClick={() => onChoose(c.id)}>
+                  <span>{c.label}</span>
+                  {c.detail ? <span className={styles.choiceCost}>{c.detail}</span> : null}
+                </button>
+              ))}
+            </div>
           </div>
-          <h2 style={{ margin: "4px 0" }}>{ev.title}</h2>
-          <p style={{ fontStyle: "italic", color: "#555", marginTop: 0 }}>{ev.body}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {ev.choices(s).filter((c) => !c.available || c.available(s)).map((c) => (
-              <button key={c.id} onClick={() => onChoose(c.id)} style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: "pointer" }}>
-                <strong>{c.label}</strong>
-                {c.detail ? <span style={{ color: "#777" }}> — {c.detail}</span> : null}
-              </button>
-            ))}
-          </div>
-        </section>
+        </div>
       )}
 
+      {/* action dock + end turn */}
       {!over && !paused && (
         <>
-          <section style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            {ACTION_LABELS.map(({ id, label, hint }) => {
+          <div className={styles.dock}>
+            {ACTIONS.map(({ id, label, hint }) => {
               const v = canDo(s, id);
               return (
-                <button key={id} onClick={() => onAct(id)} disabled={!v.ok} title={v.ok ? hint : v.reason}
-                  style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: v.ok ? "pointer" : "not-allowed" }}>
-                  <strong>{label}</strong> — {v.ok ? hint : v.reason}
+                <button
+                  key={id}
+                  className={`${styles.act} ${id === "coffee" ? styles.coffee : ""}`}
+                  onClick={() => onAct(id)}
+                  disabled={!v.ok}
+                  title={v.ok ? hint : v.reason}
+                >
+                  <span className={styles.actLabel}>{label}</span>
+                  <span className={styles.actHint}>{v.ok ? hint : v.reason}</span>
                 </button>
               );
             })}
-          </section>
-          <div style={{ marginTop: 16 }}>
-            <button onClick={onEndTurn} style={{ padding: "10px 16px", fontSize: 16, cursor: "pointer", fontWeight: "bold" }}>
-              End Turn ▶
-            </button>
           </div>
+          <button className={styles.endTurn} onClick={onEndTurn}>End term ▸</button>
         </>
       )}
 
-      <section aria-label="Log" style={{ marginTop: 20 }}>
-        <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>log</div>
-        <ul style={{ paddingLeft: 18, margin: "4px 0", color: "#444", fontSize: 14 }}>
-          {s.log.map((line, i) => <li key={i} style={{ marginBottom: 2 }}>{line}</li>)}
-        </ul>
-      </section>
-    </>
+      {/* log */}
+      <div className={styles.log}>
+        <div className={styles.logHead}>log</div>
+        <ul>{s.log.map((line, i) => <li key={i}>{line}</li>)}</ul>
+      </div>
+    </div>
   );
 }
