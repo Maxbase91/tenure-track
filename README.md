@@ -14,7 +14,7 @@ Built milestone by milestone from `doc/tenure-track-v4-master-spec.md`.
   `lib/game/` (turn loop, event engine, scenarios), serialised to JSON
 - **Neon** serverless Postgres for the communal save pool (`@neondatabase/serverless`)
 
-## What's built (M0–M4)
+## What's built (M0–M5)
 
 - **Turn loop & economy** — five actions (experiments, paper, grant, mentor,
   coffee), the Knowledge→paper pipeline, the funding economy, and the
@@ -27,6 +27,8 @@ Built milestone by milestone from `doc/tenure-track-v4-master-spec.md`.
   thread.
 - **Communal pool** — browse/open/continue any run; version-guarded saves; Neon
   backend with public-write guardrails.
+- **AI + hotseat** — competitive matches of 2–4 players (rule-based utility-AI
+  opponents + pass-the-phone humans), round-robin by term, with standings.
 
 ## Local development
 
@@ -52,5 +54,4 @@ the migration once against the production database.
 
 ## Roadmap
 
-- **M5** — utility-AI opponents + pass-the-phone hotseat
 - **M6** — isometric growing-lab visuals, sprites, sound
