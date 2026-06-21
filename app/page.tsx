@@ -1,25 +1,24 @@
 "use client";
 
-import { canDo } from "@/lib/game/machine";
+import { activeEvent } from "@/lib/game/events/engine";
+import { canDo, eventPending } from "@/lib/game/machine";
 import { useGameStore } from "@/lib/game/store";
 import type { ActionId } from "@/lib/game/types";
 import { Meter } from "./components/Meter";
-
-// M1 screen: the five real actions, the four visible meters, a dim "under the
-// hood" panel (Workload / Knowledge / Publications — surfaced for tuning), a
-// result log, and a game-over summary. Keep it ugly.
 
 const ACTION_LABELS: { id: ActionId; label: string; hint: string }[] = [
   { id: "experiment", label: "Run experiment", hint: "−3 wk, −£4,000 → +6 Knowledge" },
   { id: "paper", label: "Write paper", hint: "−3 wk, −£3,000 APC, needs 10 Knowledge → 2d6 roll" },
   { id: "grant", label: "Write grant", hint: "−5 wk, −£1,000 → 2d6 roll for £15,000" },
-  { id: "mentor", label: "Mentor student", hint: "−½ day → +2 Knowledge, +2 Morale" },
+  { id: "mentor", label: "Mentor student", hint: "−½ day → +2 Knowledge, +2 Morale, +loyalty" },
   { id: "coffee", label: "Coffee", hint: "+2 wk, +15 Workload, −2 Morale" },
 ];
 
 export default function Home() {
   const s = useGameStore();
   const { meters } = s;
+  const ev = activeEvent(s);
+  const paused = eventPending(s);
 
   return (
     <main style={{ maxWidth: 520, margin: "0 auto", padding: 16 }}>
@@ -44,9 +43,48 @@ export default function Home() {
         <Meter label="Workload" value={String(s.workload)} unit="/ 100" muted />
         <Meter label="Knowledge" value={String(s.knowledge)} muted />
         <Meter label="Publications" value={String(s.publications)} muted />
+        <Meter
+          label="Students"
+          value={s.students.map((st) => `${st.name} ♥${st.loyalty}`).join(", ") || "—"}
+          muted
+        />
+        <Meter
+          label="Live fuses"
+          value={s.fuses.map((f) => f.kind).join(", ") || "—"}
+          muted
+        />
       </section>
 
-      {s.phase === "playing" ? (
+      {/* Event modal (spec §10): blocks actions until resolved. */}
+      {paused && ev && (
+        <section
+          aria-label="Event"
+          style={{ marginTop: 16, border: "2px solid #333", padding: 12, background: "#fafafa" }}
+        >
+          <div style={{ fontSize: 12, color: "#aaa", textTransform: "uppercase" }}>
+            event{ev.rarity !== "common" ? ` · ${ev.rarity}` : ""}
+          </div>
+          <h2 style={{ margin: "4px 0" }}>{ev.title}</h2>
+          <p style={{ fontStyle: "italic", color: "#555", marginTop: 0 }}>{ev.body}</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {ev
+              .choices(s)
+              .filter((c) => !c.available || c.available(s))
+              .map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => s.choose(c.id)}
+                  style={{ padding: "8px 12px", fontSize: 15, textAlign: "left", cursor: "pointer" }}
+                >
+                  <strong>{c.label}</strong>
+                  {c.detail ? <span style={{ color: "#777" }}> — {c.detail}</span> : null}
+                </button>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {s.phase === "playing" && !paused && (
         <>
           <section style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
             {ACTION_LABELS.map(({ id, label, hint }) => {
@@ -64,21 +102,17 @@ export default function Home() {
               );
             })}
           </section>
-
           <div style={{ marginTop: 16 }}>
-            <button
-              onClick={s.endTurn}
-              style={{ padding: "10px 16px", fontSize: 16, cursor: "pointer", fontWeight: "bold" }}
-            >
+            <button onClick={s.endTurn} style={{ padding: "10px 16px", fontSize: 16, cursor: "pointer", fontWeight: "bold" }}>
               End Turn ▶
             </button>
           </div>
         </>
-      ) : (
+      )}
+
+      {s.phase === "gameover" && (
         <section style={{ marginTop: 16 }}>
-          <h2 style={{ marginBottom: 4 }}>
-            {s.outcome === "win" ? "🎓 You won." : "💀 Run over."}
-          </h2>
+          <h2 style={{ marginBottom: 4 }}>{s.outcome === "win" ? "🎓 You won." : "💀 Run over."}</h2>
           <p style={{ margin: "4px 0" }}>
             Final score: <strong>{s.score}</strong>{" "}
             <span style={{ color: "#888" }}>

@@ -29,6 +29,7 @@ export function startState(scenario: Scenario): GameState {
     phase: "playing",
     outcome: null,
     scenario: scenario.id,
+    role: "junior", // Postdoc Gamble is junior; PI scenarios arrive in M3.
     term: 1,
     maxTerms: scenario.maxTerms,
     meters: {
@@ -41,6 +42,16 @@ export function startState(scenario: Scenario): GameState {
     knowledge: STARTING.knowledge,
     publications: STARTING.publications,
     coffeeCups: 0,
+
+    // Event/karma layer. One student to start so the karma loop has a subject;
+    // mentoring raises their loyalty, unlocking the rescue branches (§8).
+    students: [{ name: "Ben Hartley", loyalty: 30 }],
+    hasPartner: true, // cast default (§6); the full partner Yes/No is M3 (§13).
+    fuses: [],
+    flags: { mentorshipBonus: 1 }, // supervisor's halo, until you confront them (#4)
+    seenEvents: [],
+    eventQueue: [],
+
     score: 0,
     log: [`${scenario.label}. ${scenario.blurb}`],
   };

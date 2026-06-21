@@ -62,3 +62,12 @@ export const BURNOUT = { morale: 0, workload: 100 } as const;
 // Quick-mode score (§9): scenario-specific win bar + a comparable score.
 // Score rewards overshoot so turn 5 stays tense once the binary win is locked.
 export const SCORE = { repWeight: 3, moneyScale: 5_000, pubWeight: 5 } as const;
+
+// Event engine (spec §10) tunables (§17 "event frequency").
+export const EVENTS = {
+  drawChance: 0.85, // chance an eligible event is drawn at a term boundary
+  rarityWeight: { common: 1, rare: 0.35, legendary: 0.12 }, // draw bias
+  loyaltyRescueThreshold: 50, // a student this loyal can save you (§8)
+  mentorLoyalty: 8, // loyalty gained per Mentor action
+  caffeineCrashCups: 3, // cups in one term that trigger Caffeine Crash (#16)
+} as const;
